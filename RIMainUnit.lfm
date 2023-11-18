@@ -1,0 +1,121 @@
+object RIMainForm: TRIMainForm
+  Left = 420
+  Height = 452
+  Top = 181
+  Width = 573
+  AllowDropFiles = True
+  Caption = 'Repton Infinity File Decoder V1.02'
+  ClientHeight = 452
+  ClientWidth = 573
+  OnDropFiles = FormDropFiles
+  Position = poScreenCenter
+  LCLVersion = '2.2.6.0'
+  object OutputDisplay: TMemo
+    Left = 0
+    Height = 402
+    Top = 50
+    Width = 573
+    Align = alClient
+    Font.Name = 'Courier New'
+    ParentFont = False
+    ScrollBars = ssAutoBoth
+    TabOrder = 0
+    WordWrap = False
+  end
+  object TopPanel: TPanel
+    Left = 0
+    Height = 50
+    Top = 0
+    Width = 573
+    Align = alTop
+    ClientHeight = 50
+    ClientWidth = 573
+    TabOrder = 1
+    object btnConvert: TButton
+      Left = 0
+      Height = 25
+      Hint = 'Converts a loaded ''O.'' file to ''eO.'' file and vice versa.'
+      Top = 0
+      Width = 104
+      Caption = 'Convert O file'
+      OnClick = btnConvertClick
+      ParentShowHint = False
+      ShowHint = True
+      TabOrder = 0
+    end
+    object btnSaveAsText: TButton
+      Left = 0
+      Height = 25
+      Hint = 'Saves the output as a text file'
+      Top = 24
+      Width = 104
+      Caption = 'Save Text File'
+      OnClick = btnSaveAsTextClick
+      ParentShowHint = False
+      ShowHint = True
+      TabOrder = 1
+    end
+    object btnLoadFile: TButton
+      Left = 104
+      Height = 25
+      Hint = 'Loads either a ''O'' or ''T'' file'
+      Top = 0
+      Width = 112
+      Caption = 'Load File'
+      OnClick = btnLoadFileClick
+      ParentShowHint = False
+      ShowHint = True
+      TabOrder = 2
+    end
+    object lblFileName: TLabel
+      Left = 312
+      Height = 16
+      Top = 4
+      Width = 194
+      Caption = 'Drag a ''T'' or ''O'' file here to load'
+      ParentColor = False
+    end
+    object cbTidyCode: TCheckBox
+      Left = 220
+      Height = 18
+      Hint = 'Tidy up the code or leave as direct decompile'
+      Top = 4
+      Width = 84
+      Caption = 'Tidy Code'
+      Checked = True
+      ParentShowHint = False
+      ShowHint = True
+      State = cbChecked
+      TabOrder = 3
+    end
+    object btnSaveAsToken: TButton
+      Left = 104
+      Height = 25
+      Hint = 'Saves the output as a ''T'' file'
+      Top = 24
+      Width = 112
+      Caption = 'Save Token File'
+      OnClick = btnSaveAsTokenClick
+      ParentShowHint = False
+      ShowHint = True
+      TabOrder = 4
+    end
+    object btnRecompile: TButton
+      Left = 216
+      Height = 25
+      Top = 24
+      Width = 112
+      Caption = 'Compile'
+      OnClick = btnRecompileClick
+      TabOrder = 5
+    end
+  end
+  object SaveDialog: TSaveDialog
+    Left = 104
+    Top = 136
+  end
+  object OpenDialog: TOpenDialog
+    Left = 184
+    Top = 136
+  end
+end
