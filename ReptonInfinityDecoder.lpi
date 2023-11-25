@@ -51,73 +51,18 @@
           </Linking>
         </CompilerOptions>
       </Item>
-      <Item Name="Release platform native">
+      <Item Name="Release macOS 64 bit">
         <CompilerOptions>
           <Version Value="11"/>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
-            <UnitOutputDirectory Value="lib/Release/$(TargetCPU)-$(TargetOS)"/>
-          </SearchPaths>
-          <CodeGeneration>
-            <SmartLinkUnit Value="True"/>
-            <Optimizations>
-              <OptimizationLevel Value="3"/>
-            </Optimizations>
-          </CodeGeneration>
-          <Linking>
-            <Debugging>
-              <GenerateDebugInfo Value="False"/>
-              <DebugInfoType Value="dsDwarf2Set"/>
-            </Debugging>
-            <LinkSmart Value="True"/>
-            <Options>
-              <Win32>
-                <GraphicApplication Value="True"/>
-              </Win32>
-            </Options>
-          </Linking>
-        </CompilerOptions>
-      </Item>
-      <Item Name="Release Windows 64 bit">
-        <CompilerOptions>
-          <Version Value="11"/>
-          <SearchPaths>
-            <IncludeFiles Value="$(ProjOutDir)"/>
+            <OtherUnitFiles Value="../SpriteToBitmap;../GJHCustomConponents"/>
             <UnitOutputDirectory Value="lib/Release/$(TargetCPU)-$(TargetOS)"/>
           </SearchPaths>
           <CodeGeneration>
             <SmartLinkUnit Value="True"/>
             <TargetCPU Value="x86_64"/>
-            <TargetOS Value="win64"/>
-            <Optimizations>
-              <OptimizationLevel Value="3"/>
-            </Optimizations>
-          </CodeGeneration>
-          <Linking>
-            <Debugging>
-              <GenerateDebugInfo Value="False"/>
-              <DebugInfoType Value="dsDwarf2Set"/>
-            </Debugging>
-            <LinkSmart Value="True"/>
-            <Options>
-              <Win32>
-                <GraphicApplication Value="True"/>
-              </Win32>
-            </Options>
-          </Linking>
-        </CompilerOptions>
-      </Item>
-      <Item Name="Release Windows 32 bit">
-        <CompilerOptions>
-          <Version Value="11"/>
-          <SearchPaths>
-            <IncludeFiles Value="$(ProjOutDir)"/>
-            <UnitOutputDirectory Value="lib/Release/$(TargetCPU)-$(TargetOS)"/>
-          </SearchPaths>
-          <CodeGeneration>
-            <SmartLinkUnit Value="True"/>
-            <TargetCPU Value="i386"/>
-            <TargetOS Value="win32"/>
+            <TargetOS Value="darwin"/>
             <Optimizations>
               <OptimizationLevel Value="3"/>
             </Optimizations>
@@ -141,6 +86,7 @@
           <Version Value="11"/>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
+            <OtherUnitFiles Value="../SpriteToBitmap;../GJHCustomConponents"/>
             <UnitOutputDirectory Value="lib/Release/$(TargetCPU)-$(TargetOS)"/>
           </SearchPaths>
           <CodeGeneration>
@@ -173,6 +119,7 @@
           <Version Value="11"/>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
+            <OtherUnitFiles Value="../SpriteToBitmap;../GJHCustomConponents"/>
             <UnitOutputDirectory Value="lib/Release/$(TargetCPU)-$(TargetOS)"/>
           </SearchPaths>
           <CodeGeneration>
@@ -203,11 +150,77 @@
           </Other>
         </CompilerOptions>
       </Item>
+      <Item Name="Release Windows 64 bit">
+        <CompilerOptions>
+          <Version Value="11"/>
+          <SearchPaths>
+            <IncludeFiles Value="$(ProjOutDir)"/>
+            <OtherUnitFiles Value="../SpriteToBitmap;../GJHCustomConponents"/>
+            <UnitOutputDirectory Value="lib/Release/$(TargetCPU)-$(TargetOS)"/>
+          </SearchPaths>
+          <CodeGeneration>
+            <SmartLinkUnit Value="True"/>
+            <TargetCPU Value="x86_64"/>
+            <TargetOS Value="win64"/>
+            <Optimizations>
+              <OptimizationLevel Value="3"/>
+            </Optimizations>
+          </CodeGeneration>
+          <Linking>
+            <Debugging>
+              <GenerateDebugInfo Value="False"/>
+              <DebugInfoType Value="dsDwarf2Set"/>
+            </Debugging>
+            <LinkSmart Value="True"/>
+            <Options>
+              <Win32>
+                <GraphicApplication Value="True"/>
+              </Win32>
+            </Options>
+          </Linking>
+        </CompilerOptions>
+      </Item>
+      <Item Name="Release Windows 32 bit">
+        <CompilerOptions>
+          <Version Value="11"/>
+          <SearchPaths>
+            <IncludeFiles Value="$(ProjOutDir)"/>
+            <OtherUnitFiles Value="../SpriteToBitmap;../GJHCustomConponents"/>
+            <UnitOutputDirectory Value="lib/Release/$(TargetCPU)-$(TargetOS)"/>
+          </SearchPaths>
+          <CodeGeneration>
+            <SmartLinkUnit Value="True"/>
+            <TargetCPU Value="i386"/>
+            <TargetOS Value="win32"/>
+            <Optimizations>
+              <OptimizationLevel Value="3"/>
+            </Optimizations>
+          </CodeGeneration>
+          <Linking>
+            <Debugging>
+              <GenerateDebugInfo Value="False"/>
+              <DebugInfoType Value="dsDwarf2Set"/>
+            </Debugging>
+            <LinkSmart Value="True"/>
+            <Options>
+              <Win32>
+                <GraphicApplication Value="True"/>
+              </Win32>
+            </Options>
+          </Linking>
+          <Other>
+            <CompilerMessages>
+              <IgnoredMessages idx5094="True" idx5091="True" idx5060="True" idx5057="True" idx4081="True" idx4080="True" idx4079="True" idx4035="True"/>
+            </CompilerMessages>
+          </Other>
+        </CompilerOptions>
+      </Item>
       <Item Name="Release Linux 64 bit">
         <CompilerOptions>
           <Version Value="11"/>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
+            <OtherUnitFiles Value="../SpriteToBitmap;../GJHCustomConponents"/>
             <UnitOutputDirectory Value="lib/Release/$(TargetCPU)-$(TargetOS)"/>
           </SearchPaths>
           <CodeGeneration>
@@ -237,6 +250,7 @@
           <Version Value="11"/>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
+            <OtherUnitFiles Value="../SpriteToBitmap;../GJHCustomConponents"/>
             <UnitOutputDirectory Value="lib/Release/$(TargetCPU)-$(TargetOS)"/>
           </SearchPaths>
           <CodeGeneration>
@@ -261,16 +275,47 @@
           </Linking>
         </CompilerOptions>
       </Item>
-      <Item Name="Release Linux ARM">
+      <Item Name="Release Linux ARM 32 bit">
         <CompilerOptions>
           <Version Value="11"/>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
+            <OtherUnitFiles Value="../SpriteToBitmap;../GJHCustomConponents"/>
             <UnitOutputDirectory Value="lib/Release/$(TargetCPU)-$(TargetOS)"/>
           </SearchPaths>
           <CodeGeneration>
             <SmartLinkUnit Value="True"/>
             <TargetCPU Value="arm"/>
+            <TargetOS Value="linux"/>
+            <Optimizations>
+              <OptimizationLevel Value="3"/>
+            </Optimizations>
+          </CodeGeneration>
+          <Linking>
+            <Debugging>
+              <GenerateDebugInfo Value="False"/>
+              <DebugInfoType Value="dsDwarf2Set"/>
+            </Debugging>
+            <LinkSmart Value="True"/>
+            <Options>
+              <Win32>
+                <GraphicApplication Value="True"/>
+              </Win32>
+            </Options>
+          </Linking>
+        </CompilerOptions>
+      </Item>
+      <Item Name="Release Linux ARM 64 bit">
+        <CompilerOptions>
+          <Version Value="11"/>
+          <SearchPaths>
+            <IncludeFiles Value="$(ProjOutDir)"/>
+            <OtherUnitFiles Value="../SpriteToBitmap;../GJHCustomConponents"/>
+            <UnitOutputDirectory Value="lib/Release/$(TargetCPU)-$(TargetOS)"/>
+          </SearchPaths>
+          <CodeGeneration>
+            <SmartLinkUnit Value="True"/>
+            <TargetCPU Value="aarch64"/>
             <TargetOS Value="linux"/>
             <Optimizations>
               <OptimizationLevel Value="3"/>
@@ -321,6 +366,7 @@
     <Version Value="11"/>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
+      <OtherUnitFiles Value="../SpriteToBitmap;../GJHCustomConponents"/>
       <UnitOutputDirectory Value="lib/Debug/$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Linking>
@@ -336,7 +382,7 @@
     </Linking>
     <Other>
       <CompilerMessages>
-        <IgnoredMessages idx6058="True" idx5094="True" idx5091="True" idx5060="True" idx5057="True" idx5024="True" idx4081="True" idx4080="True" idx4079="True" idx4035="True"/>
+        <IgnoredMessages idx6058="True" idx6018="True" idx5094="True" idx5091="True" idx5060="True" idx5057="True" idx5024="True" idx4081="True" idx4080="True" idx4079="True" idx4035="True"/>
       </CompilerMessages>
     </Other>
   </CompilerOptions>

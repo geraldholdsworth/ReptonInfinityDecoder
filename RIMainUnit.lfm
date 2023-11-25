@@ -1,36 +1,26 @@
 object RIMainForm: TRIMainForm
-  Left = 420
-  Height = 452
-  Top = 181
-  Width = 573
+  Left = 749
+  Height = 476
+  Top = 156
+  Width = 622
   AllowDropFiles = True
-  Caption = 'Repton Infinity File Decoder V1.02'
-  ClientHeight = 452
-  ClientWidth = 573
+  Caption = 'Repton Infinity File Decoder V1.03'
+  ClientHeight = 476
+  ClientWidth = 622
+  OnCreate = FormCreate
   OnDropFiles = FormDropFiles
+  OnShow = FormShow
   Position = poScreenCenter
   LCLVersion = '2.2.6.0'
-  object OutputDisplay: TMemo
-    Left = 0
-    Height = 402
-    Top = 50
-    Width = 573
-    Align = alClient
-    Font.Name = 'Courier New'
-    ParentFont = False
-    ScrollBars = ssAutoBoth
-    TabOrder = 0
-    WordWrap = False
-  end
   object TopPanel: TPanel
     Left = 0
     Height = 50
     Top = 0
-    Width = 573
+    Width = 622
     Align = alTop
     ClientHeight = 50
-    ClientWidth = 573
-    TabOrder = 1
+    ClientWidth = 622
+    TabOrder = 0
     object btnConvert: TButton
       Left = 0
       Height = 25
@@ -103,12 +93,64 @@ object RIMainForm: TRIMainForm
     object btnRecompile: TButton
       Left = 216
       Height = 25
+      Hint = 'Compiles the character definitions to 6502 code'
       Top = 24
       Width = 112
       Caption = 'Compile'
       OnClick = btnRecompileClick
       TabOrder = 5
     end
+  end
+  object Characters: TPageControl
+    Left = 0
+    Height = 408
+    Top = 50
+    Width = 622
+    ActivePage = Summary
+    Align = alClient
+    MultiLine = True
+    Style = tsButtons
+    TabIndex = 0
+    TabOrder = 1
+    Options = [nboMultiLine]
+    object Summary: TTabSheet
+      Caption = 'Summary'
+      ClientHeight = 378
+      ClientWidth = 616
+      object OutputDisplay: TMemo
+        Left = 0
+        Height = 378
+        Top = 0
+        Width = 616
+        Align = alClient
+        Font.Name = 'Courier New'
+        ParentFont = False
+        ScrollBars = ssAutoBoth
+        TabOrder = 0
+        WordWrap = False
+      end
+    end
+  end
+  object StatusBar: TStatusBar
+    Left = 0
+    Height = 18
+    Top = 458
+    Width = 622
+    Font.Style = [fsBold]
+    Panels = <    
+      item
+        Alignment = taCenter
+        Width = 100
+      end    
+      item
+        Alignment = taCenter
+        Width = 200
+      end    
+      item
+        Width = 50
+      end>
+    ParentFont = False
+    SimplePanel = False
   end
   object SaveDialog: TSaveDialog
     Left = 104

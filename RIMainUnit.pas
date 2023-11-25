@@ -5,7 +5,8 @@ unit RIMainUnit;
 interface
 
 uses
- Classes,SysUtils,Forms,Controls,Graphics,Dialogs,StdCtrls,ExtCtrls,StrUtils;
+ Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, ExtCtrls,
+ ComCtrls, StrUtils;
 
 type
  RIByteArray = array of Byte;
@@ -21,24 +22,32 @@ type
   lblFileName: TLabel;
   OutputDisplay: TMemo;
   OpenDialog: TOpenDialog;
+  Characters: TPageControl;
+  StatusBar: TStatusBar;
+  Summary: TTabSheet;
   TopPanel: TPanel;
   SaveDialog: TSaveDialog;
   procedure btnConvertClick(Sender: TObject);
+  function CreateOutput: TStringList;
   procedure btnRecompileClick(Sender: TObject);
   procedure btnSaveAsTextClick(Sender: TObject);
   procedure btnLoadFileClick(Sender: TObject);
   procedure btnSaveAsTokenClick(Sender: TObject);
+  procedure FormCreate(Sender: TObject);
   procedure FormDropFiles(Sender: TObject; const FileNames: array of string);
-  function Detokenise(C: Integer): TStringList;
+  function Detokenise(C: Integer; AData: RIByteArray): TStringList;
+  procedure FormShow(Sender: TObject);
   function Tokenise(Input: TStrings): RIByteArray;
-  function Decompile(C: Integer;Elk: Boolean=False;
+  function Decompile(C: Integer; AData: RIByteArray; Elk: Boolean=False;
                                            TidyCode: Boolean=True): TStringList;
   function Convert(RIData: RIByteArray;toBBC: Boolean): RIByteArray;
   function Compile(Input: TStrings;out Errors: TStringList;
                                            BBC: Boolean=True): RIByteArray;
  private
-  LoadedData: array of Byte;
+  LoadedData: RIByteArray;
   LoadedFile: String;
+  CharTab   : array[0..31] of TTabSheet;
+  CharDisp  : array[0..31] of TMemo;
   const
    //All the Reptol commands in order of token
    tokens: array[$80..$AB] of String = (
@@ -119,8 +128,8 @@ type
 		('20yyxx','GOTO $xx$yy'),
                 ('E610','KILLREPTON'),
                 ('A549','IF HITBY'),
-                ('A042','UNKNOWN COMMAND'),
-                ('A51D','UNKNOWN COMMAND'),
+                ('A042','UNKNOWN COMMAND'), //LDY #&42
+                ('A51D','UNKNOWN COMMAND'), //LDA &1D
                 ('60','END'));
    //Compile/Decompile translations - Electron Version
    ElkCmds: array[0..66] of array[0..1] of String=(
@@ -220,6 +229,20 @@ var
  F    : TFileStream;
  fname: String;
  Index: Integer;
+ Output: TStringList;
+ procedure PopulateDisplay;
+ begin
+  if Index>=0 then
+  begin
+   CharDisp[Index].Clear;
+   CharDisp[Index].Lines.AddStrings(Output);
+   CharTab[Index].Caption:='Character '+IntToStr(Index);
+   if Output.Count>1 then
+    if LeftStr(Output[0],5)='NAME ' then
+     CharTab[Index].Caption:=Copy(Output[0],6);
+  end
+  else StatusBar.Panels[1].Text:=Output[0];
+ end;
 begin
  //Open and load the file
  F:=TFileStream.Create(FileNames[0],fmOpenRead OR fmShareDenyNone);
@@ -227,26 +250,28 @@ begin
  F.ReadBuffer(LoadedData[0],F.Size);
  F.Free;
  //Clear the output container, ready for the output
+ Output:=TStringList.Create;
  OutputDisplay.Clear;
  fname:=ExtractFileName(FileNames[0]);
  LoadedFile:=FileNames[0];
- lblFileName.Caption:='Current file: '+ExtractFileName(LoadedFile);
+ StatusBar.Panels[0].Text:=ExtractFileName(LoadedFile);
  //Tokenised source file                                  DETOKENISE
  if(LeftStr(fname,2)='T.')      //BBC version
  or(LeftStr(fname,3)='eT.')then //Electron version
   for Index:=-1 to 31 do
   begin
-   if Index>=0 then OutputDisplay.Lines.Add(StringOfChar('-',40));
-   OutputDisplay.Lines.AddStrings(Detokenise(Index));
- end;
+   Output:=Detokenise(Index,LoadedData);
+   PopulateDisplay;
+  end;
  //Compiled object file                                   DECOMPILE
  if(LeftStr(fname,2)='O.')      //BBC version
  or(LeftStr(fname,3)='eO.')then //Electron version
   for Index:=-1 to 31 do
   begin
-   if Index>=0 then OutputDisplay.Lines.Add(StringOfChar('-',40));
-   OutputDisplay.Lines.AddStrings(Decompile(Index,LeftStr(fname,3)='eO.',cbTidyCode.Checked));
+   Output:=Decompile(Index,LoadedData,LeftStr(fname,3)='eO.',cbTidyCode.Checked);
+   PopulateDisplay;
   end;
+ Output.Free;
 end;
 
 procedure TRIMainForm.btnConvertClick(Sender: TObject);
@@ -285,34 +310,61 @@ begin
  end;
 end;
 
+function TRIMainForm.CreateOutput: TStringList;
+var
+ Index   : Integer;
+begin
+ Result:=TStringList.Create;
+ Result.Add(StatusBar.Panels[1].Text);
+ for Index:=0 to 31 do
+ begin
+  Result.Add(StringOfChar('-',40));
+  Result.AddStrings(CharDisp[Index].Lines);
+ end;
+end;
+
 procedure TRIMainForm.btnRecompileClick(Sender: TObject);
 var
  SaveData: RIByteArray;
  F       : TFileStream;
  E       : TStringList;
+ Output  : TStringList;
 begin
- if OutputDisplay.Lines.Count>0 then
-  if SaveDialog.Execute then
+ Output:=CreateOutput;
+ if Output.Count>33 then
+ begin
+  SaveData:=Compile(Output,E);
+  if E.Count=0 then
   begin
-   SaveData:=Compile(OutputDisplay.Lines,E);
-   if E.Count=0 then
+   if SaveDialog.Execute then
    begin
     F:=TFileStream.Create(SaveDialog.FileName,fmCreate OR fmShareDenyNone);
     F.WriteBuffer(SaveData[0],Length(SaveData));
     F.Free;
-   end
-   else ShowMessage('Compilation failed - there were some errors');
+   end;
+  end
+  else
+  begin
+   OutputDisplay.Clear;
+   OutputDisplay.Lines.AddStrings(E);
   end;
+  E.Free;
+ end;
+ Output.Free;
 end;
 
 procedure TRIMainForm.btnSaveAsTextClick(Sender: TObject);
+var
+ Output  : TStringList;
 begin
- if OutputDisplay.Lines.Count>0 then
+ Output:=CreateOutput;
+ if Output.Count>33 then
  begin
   SaveDialog.InitialDir:=ExtractFilePath(LoadedFile);
   SaveDialog.FileName:=ExtractFileName(LoadedFile)+'.txt';
-  if SaveDialog.Execute then OutputDisplay.Lines.SaveToFile(SaveDialog.FileName);
+  if SaveDialog.Execute then Output.SaveToFile(SaveDialog.FileName);
  end;
+ Output.Free;
 end;
 
 procedure TRIMainForm.btnLoadFileClick(Sender: TObject);
@@ -332,8 +384,10 @@ var
  fname   : String;
  SaveData: RIByteArray;
  F       : TFileStream;
+ Output  : TStringList;
 begin
- if OutputDisplay.Lines.Count>0 then
+ Output:=CreateOutput;
+ if Output.Count>33 then
  begin 
   SaveDialog.InitialDir:=ExtractFilePath(LoadedFile);
   fname:=ExtractFileName(LoadedFile);
@@ -342,18 +396,41 @@ begin
   SaveDialog.FileName:=fname;
   if SaveDialog.Execute then
   begin
-   SaveData:=Tokenise(OutputDisplay.Lines);
+   SaveData:=Tokenise(Output);
    F:=TFileStream.Create(SaveDialog.FileName,fmCreate OR fmShareDenyNone);
    F.WriteBuffer(SaveData[0],Length(SaveData));
    F.Free;
   end;
  end;
+ Output.Free;
+end;
+
+procedure TRIMainForm.FormCreate(Sender: TObject);
+var
+ Index: Integer;
+begin
+ for Index:=0 to 31 do
+ begin
+  CharTab[Index]:=Characters.AddTabSheet;
+  CharTab[Index].Caption:='Character '+IntToStr(Index);
+  CharDisp[Index]:=TMemo.Create(CharTab[Index]);
+  CharDisp[Index].Parent:=CharTab[Index];
+  CharDisp[Index].Align:=alClient;
+  CharDisp[Index].ScrollBars:=ssAutoBoth;
+  CharDisp[Index].WordWrap:=False;
+  CharDisp[Index].Font.Name:='Courier New';
+ end;
+end;
+
+procedure TRIMainForm.FormShow(Sender: TObject);
+begin
+ Characters.ActivePage:=CharTab[0];
 end;
 
 {-------------------------------------------------------------------------------
 Detokeniser - for 'T.' files
 -------------------------------------------------------------------------------}
-function TRIMainForm.Detokenise(C: Integer): TStringList;
+function TRIMainForm.Detokenise(C: Integer; AData: RIByteArray): TStringList;
 var
  lC: Integer;
  Index: Cardinal;
@@ -366,10 +443,10 @@ begin
  if C=-1 then
  begin
   Index:=$0;
-  while(Index<$10)and(LoadedData[Index]<>$0D)do
+  while(Index<$10)and(AData[Index]<>$0D)do
   begin
-   if(LoadedData[Index]>=32)and(LoadedData[Index]<=126)then
-    line:=line+chr(LoadedData[Index]);
+   if(AData[Index]>=32)and(AData[Index]<=126)then
+    line:=line+chr(AData[Index]);
    inc(Index);
   end;
   Result.Add(line);
@@ -380,31 +457,31 @@ begin
   Index:=$10;
   //Find the start of the character
   lC:=0;
-  while(Index<Length(LoadedData))and(lC<>C)do
+  while(Index<Length(AData))and(lC<>C)do
   begin
-   if LoadedData[Index]=$FE then inc(lC);
+   if AData[Index]=$FE then inc(lC);
    inc(Index);
   end;
   //Detokenise the character
-  while Index<Length(LoadedData) do
+  while Index<Length(AData) do
   begin
    //New line
-   if LoadedData[Index]=$0D then
+   if AData[Index]=$0D then
    begin
     Result.Add(line);
     line:='';
    end;
    //ASCII character
-   if(LoadedData[Index]>=32)and(LoadedData[Index]<=126)then
-    line:=line+chr(LoadedData[Index]);
+   if(AData[Index]>=32)and(AData[Index]<=126)then
+    line:=line+chr(AData[Index]);
    //Tokenised command
-   if(LoadedData[Index]>=Low(tokens))and(LoadedData[Index]<=High(tokens))then
-    line:=line+tokens[LoadedData[Index]];
+   if(AData[Index]>=Low(tokens))and(AData[Index]<=High(tokens))then
+    line:=line+tokens[AData[Index]];
    //Indentation
-   if(LoadedData[Index]>=$C8)and(LoadedData[Index]<$FE)then
-    line:=line+StringOfChar(' ',LoadedData[Index]-$C8);
+   if(AData[Index]>=$C8)and(AData[Index]<$FE)then
+    line:=line+StringOfChar(' ',AData[Index]-$C8);
    //End of definition for this character
-   if LoadedData[Index]=$FE then Index:=Length(LoadedData);
+   if AData[Index]=$FE then Index:=Length(AData);
    //Next byte
    inc(Index);
   end;
@@ -495,7 +572,7 @@ end;
 {-------------------------------------------------------------------------------
 Decompiler for 'O.' files
 -------------------------------------------------------------------------------}
-function TRIMainForm.Decompile(C: Integer;Elk: Boolean;
+function TRIMainForm.Decompile(C: Integer; AData: RIByteArray; Elk: Boolean;
                                            TidyCode: Boolean=True): TStringList;
 var
  B,D,E   : Byte;
@@ -528,11 +605,11 @@ begin
   S:=Copy(tocheck,I,2);
   //Does it match?
   if IntToHex(StrToIntDef('$'+S,0),2)=S then
-   if StrToIntDef('$'+S,0)<>LoadedData[Offset+(I-1)div 2] then ok:=False;
+   if StrToIntDef('$'+S,0)<>AData[Offset+(I-1)div 2] then ok:=False;
   //Does not match, so check to see if it is a wildcard - only check if OK so far
   if(IntToHex(StrToIntDef('$'+S,0),2)<>S)and(ok)then
   begin
-   R:=LoadedData[Offset+(I-1)div 2];
+   R:=AData[Offset+(I-1)div 2];
    //Straight integer
    if Pos('#'+S,cmd)>0 then
     cmd:=StringReplace(cmd,'#'+S,IntToStr(R),replace);
@@ -635,10 +712,10 @@ begin
  if C=-1 then
  begin
   Index:=$0;
-  while(Index<$10)and(LoadedData[Index]<>$0D)do
+  while(Index<$10)and(AData[Index]<>$0D)do
   begin
-   if(LoadedData[Index]>=32)and(LoadedData[Index]<=126)then
-    line:=line+chr(LoadedData[Index]);
+   if(AData[Index]>=32)and(AData[Index]<=126)then
+    line:=line+chr(AData[Index]);
    inc(Index);
   end;
   Result.Add(line);
@@ -656,17 +733,17 @@ begin
   for E:=0 to 7 do
   begin
    //System flags
-   if LoadedData[$90+C]AND(1<<E)=1<<E then Result.Add(SysFlags[0,E]);
-   if LoadedData[$B0+C]AND(1<<E)=1<<E then Result.Add(SysFlags[1,E]);
+   if AData[$90+C]AND(1<<E)=1<<E then Result.Add(SysFlags[0,E]);
+   if AData[$B0+C]AND(1<<E)=1<<E then Result.Add(SysFlags[1,E]);
    //User flags
-   if LoadedData[$D0+C]AND(1<<E)=1<<E then Result.Add('UserFlag'+IntToStr(E));
+   if AData[$D0+C]AND(1<<E)=1<<E then Result.Add('UserFlag'+IntToStr(E));
   end;
   //Find the ACTION or HITS offset for this character
   E:=$10;
   Offset:=0;
   while(Offset=0)and(E<>0)do
   begin
-   Offset:=LoadedData[E+C]+LoadedData[E+$20+C]<<8;
+   Offset:=AData[E+C]+AData[E+$20+C]<<8;
    if Offset<base+$F0 then if E=$10 then E:=$50 else if E=$50 then E:=0;
   end;
   //If the offset is zero, then there is no definition
@@ -680,15 +757,15 @@ begin
    while(EndOff=0)and(D<$1F)do
    begin
     inc(D);
-    EndOff:=LoadedData[$10+D]+LoadedData[$30+D]<<8;
+    EndOff:=AData[$10+D]+AData[$30+D]<<8;
    end;
-   if EndOff=0 then EndOff:=Length(LoadedData)-1 else dec(EndOff,base+1);
+   if EndOff=0 then EndOff:=Length(AData)-1 else dec(EndOff,base+1);
    //However, the end of the definition could be beyond another char's HITS
    ThisOff:=0;
    D:=0;
    while((ThisOff<Offset)or(ThisOff>EndOff))and(D<$1F)do
    begin
-    if C<>D then ThisOff:=(LoadedData[$50+D]+LoadedData[$70+D]<<8)-base;
+    if C<>D then ThisOff:=(AData[$50+D]+AData[$70+D]<<8)-base;
     inc(D);
    end;
    if(ThisOff>Offset)and(ThisOff<EndOff)then EndOff:=ThisOff-1;
@@ -696,7 +773,7 @@ begin
    while Offset<=EndOff do
    begin
     //We are adding the 'DEFINE HITS' section
-    if(Offset=(LoadedData[$50+C]+LoadedData[$70+C]<<8)-base)and(E=$10)then
+    if(Offset=(AData[$50+C]+AData[$70+C]<<8)-base)and(E=$10)then
      Result.Add('DEFINE HITS');
     //Start with an empty line
     line:='';
@@ -708,7 +785,7 @@ begin
      inc(Index);
     end;
     //No match found, so add the original hex code for later inspection
-    if line='' then line:=IntToHex(Offset,4)+': '+IntToHex(LoadedData[Offset],2);
+    if line='' then line:=IntToHex(Offset,4)+': '+IntToHex(AData[Offset],2);
     //Add to the output container
     Result.Add(line);
     //And move onto the next byte
@@ -1098,10 +1175,9 @@ begin
  for i:=0 to Output.Count-1 do
   while(Length(Output[i])>0)and(Output[i][1]=' ')do
    Output[i]:=Copy(Output[i],2);
- //Turn 'IF HITBY CharacterX' into 'IF HITBY' & 'IF NOT CONTENTS CharacterX GOTO'
- //and make sure each DEFINE section has an END
+ //Turn 'IF HITBY CharacterX' into 'IF HITBY' & 'IF NOT CONTENTS CharacterX GOTO',
+ //make sure each DEFINE section has an END, and add a label after any ELSE's
  i:=1;
- Output.SaveToFile('/Users/geraldholdsworth/Desktop/DEBUG1.txt');//DEBUG
  define:=0;
  while i<Output.Count do
  begin
@@ -1120,6 +1196,8 @@ begin
   if Output[i]='DEFINE TYPE' then define:=1;
   if Output[i]='DEFINE ACTION' then define:=2;
   if Output[i]='DEFINE HITS' then define:=3;
+  //Add a label after an ELSE
+  if Output[i]='ELSE' then Output.Insert(i+1,'LABEL ELSE');
   inc(i);
  end;
  //Add line numbers
@@ -1167,6 +1245,31 @@ begin
    i:=StrToIntDef('$'+LeftStr(Output[Output.Count-1],4),Output.Count-1)+1;
    Output.Add(IntToHex(i,4)+': END');
   end;
+  //Find the ELSE's and the associated IF
+  for i:=1 to Output.Count-1 do
+  begin
+   if Copy(Output[i],7)='ELSE' then
+   begin
+    //Change the next line for a proper label
+    Output[i+1]:=StringReplace(Output[i+1],
+                               'ELSE',
+                               'Label'+LeftStr(Output[i+1],4),
+                               replace);
+    //Track back to find the associated IF
+    c:=0; //IF/ENDIF counter
+    j:=i; //Position in the text
+    InType:=False; //Use this to flag when found
+    while(j>1)and(not InType)and(LeftStr(Output[j],4)<>'Char')do
+    begin
+     dec(j);
+     if(c=0)and(Copy(Output[j],7,3)='IF ')then InTYpe:=True; //Found
+     if(c<>0)and(Copy(Output[j],7,3)='IF ')then inc(c);
+     if Copy(Output[j],7)='ENDIF' then dec(c);
+    end;
+    //Make a note of the associated IF
+    if InType then Output[i]:=Output[i]+' '+LeftStr(Output[j],4);
+   end;
+  end;
   //Turn 'IF' into 'IF NOT' and 'IF NOT' into 'IF', with GOTO to the ENDIF
   for i:=1 to Output.Count-1 do
   begin
@@ -1193,20 +1296,25 @@ begin
    if(Copy(Output[i],7,7)='CREATE(')and(Pos(',',Output[i])=0)then
     Output[i]:=LeftStr(Output[i],Length(Output[i])-1)+',curr)';
   end;
-  //Remove the ELSEs ----- change these to GOTO LABEL and point to the ENDIF corresponding to the IF
-  {
-   Start counter with 0 and track back. When an ENDIF is found, subtract 1.
-   When an IF is found, and the counter is less than 0, add one.
-   When an IF is found, and the counter is zero, then this is the corresponding IF to the ELSE.
-   This will need to be moved before the above section, but the GOTO won't have been created at this stage.
-   So, we will need to have a secondary section afterwards.
-   This means, first we find the ELSE, track back to find the IF then add a note after the ELSE to find the
-   corresponding IF. Finally, after the above section, replace the ELSE with the appropriate GOTO, copying
-   the GOTO from the referenced IF.
-  }
-  i:=0;
-  while i<Output.Count do
-   if Copy(Output[i],7,4)='ELSE' then Output.Delete(i) else inc(i);
+  //Now sort the ELSEs out
+  for i:=1 to Output.Count-1 do
+  begin
+   //Find the ELSE, again
+   if Copy(Output[i],7,5)='ELSE ' then
+   begin
+    //Get the line number of the associated IF
+    OLbl:=RightStr(Output[i],4);
+    //Find it
+    j:=i;
+    while LeftStr(Output[j],4)<>OLbl do dec(j);
+    //Get the GOTO destination
+    NLbl:=RightStr(Output[j],4);
+    //Change the GOTO destination to point to the next line
+    Output[j]:=StringReplace(Output[j],NLbl,LeftStr(Output[i+1],4),replace);
+    //Change the ELSE to a GOTO with the original destination of the IF
+    Output[i]:=LeftStr(Output[i],6)+'GOTO Label'+NLbl;
+   end;
+  end;
   //Loop round and perform multiple tasks
   i:=0;
   while i<Output.Count do
@@ -1647,13 +1755,7 @@ begin
     Result[x+xx]:=StrToIntDef('$'+Copy(Tmp1,(xx*2)+1,2),$00);
   end;
  end;
- //Output the results                                      *********************
- //This will, evenutally, get deleted to output an array of bytes - the code
- OutputDisplay.Lines.Add(StringOfChar('*',40));
- OutputDisplay.Lines.Add('Compiled code follows');
- OutputDisplay.Lines.Add(StringOfChar('*',40));
- if Errors.Count>0 then OutputDisplay.Lines.AddStrings(Errors)
- else OutputDisplay.Lines.AddStrings(Output);
+ Output.Free;
 end;
 
 end.

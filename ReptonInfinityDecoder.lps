@@ -2,7 +2,7 @@
 <CONFIG>
   <ProjectSession>
     <Version Value="12"/>
-    <ManyBuildModesSelection Value="&quot;Release platform native&quot;,&quot;Release Windows 64 bit&quot;,&quot;Release Windows 32 bit&quot;,&quot;Release macOS 32 bit&quot;,&quot;Release macOS ARM&quot;,&quot;Release Linux 64 bit&quot;,&quot;Release Linux 32 bit&quot;,&quot;Release Linux ARM&quot;"/>
+    <ManyBuildModesSelection Value="&quot;Release macOS 64 bit&quot;,&quot;Release macOS 32 bit&quot;,&quot;Release macOS ARM&quot;,&quot;Release Windows 64 bit&quot;,&quot;Release Windows 32 bit&quot;,&quot;Release Linux 64 bit&quot;,&quot;Release Linux 32 bit&quot;,&quot;Release Linux ARM 32 bit&quot;,&quot;Release Linux ARM 64 bit&quot;"/>
     <BuildModes Active="Default"/>
     <Units>
       <Unit>
@@ -21,8 +21,8 @@
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
         <IsVisibleTab Value="True"/>
-        <TopLine Value="1598"/>
-        <CursorPos X="78" Y="1622"/>
+        <TopLine Value="29"/>
+        <CursorPos X="82" Y="271"/>
         <UsageCount Value="214"/>
         <Loaded Value="True"/>
         <LoadedDesigner Value="True"/>
@@ -31,123 +31,122 @@
     <JumpHistory HistoryIndex="29">
       <Position>
         <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="1407" TopLine="1383"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="1408" TopLine="1383"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="195" Column="5" TopLine="181"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="197" Column="5" TopLine="178"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="1426" TopLine="1387"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="1425" Column="47" TopLine="1401"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="1410" TopLine="1401"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="1426" TopLine="1401"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="1423" Column="15" TopLine="534"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="1453" Column="52" TopLine="1416"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="1057" TopLine="1021"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="1459" TopLine="1443"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="200" Column="5" TopLine="166"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="1485" Column="11" TopLine="1464"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="1475" Column="56" TopLine="1451"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="1470" Column="102" TopLine="1452"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="1484" Column="29" TopLine="1458"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="305" Column="7" TopLine="284"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="1580" Column="30" TopLine="1545"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="1577" Column="29" TopLine="1545"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="1593" Column="64" TopLine="1546"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="1584" Column="21" TopLine="1566"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="1596" TopLine="1566"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="1606" TopLine="1566"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="1593" Column="39" TopLine="1566"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="1384" Column="3" TopLine="1368"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="1197" Column="20" TopLine="1186"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
-        <Caret Line="1117" Column="49" TopLine="1096"/>
-      </Position>
-      <Position>
-        <Filename Value="RIMainUnit.pas"/>
         <Caret Line="299" Column="9" TopLine="278"/>
       </Position>
       <Position>
         <Filename Value="RIMainUnit.pas"/>
         <Caret Line="564" Column="65" TopLine="534"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="1192" TopLine="1155"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="300" Column="3" TopLine="300"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="301" Column="3" TopLine="301"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="299" Column="3" TopLine="299"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="300" Column="3" TopLine="300"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="46" Column="41" TopLine="23"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="252" TopLine="228"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="1714" Column="2" TopLine="1103"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="1715" Column="14" TopLine="1668"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="252" Column="21" TopLine="229"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="1718" Column="5" TopLine="1056"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="252" Column="27" TopLine="221"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="327" Column="11" TopLine="303"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="320" Column="10" TopLine="298"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="31" Column="12" TopLine="6"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="417" Column="36" TopLine="393"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="483" Column="36" TopLine="481"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="482" Column="36" TopLine="480"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="240" Column="32" TopLine="220"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="421" Column="43" TopLine="401"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="351" Column="2" TopLine="314"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="433" Column="43" TopLine="406"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="38" Column="30" TopLine="36"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="575" Column="76" TopLine="563"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="788" Column="77" TopLine="774"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="41" Column="54" TopLine="17"/>
+      </Position>
+      <Position>
+        <Filename Value="RIMainUnit.pas"/>
+        <Caret Line="575" Column="77" TopLine="571"/>
       </Position>
     </JumpHistory>
     <RunParams>
