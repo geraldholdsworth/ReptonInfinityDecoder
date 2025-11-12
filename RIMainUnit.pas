@@ -6,7 +6,7 @@ interface
 
 uses
  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, ExtCtrls,
- ComCtrls, StrUtils;
+ ComCtrls, SynHighlighterAny, SynEdit, StrUtils, SynEditTypes;
 
 type
  RIByteArray = array of Byte;
@@ -27,6 +27,9 @@ type
   Summary: TTabSheet;
   TopPanel: TPanel;
   SaveDialog: TSaveDialog;
+  Image1: TImage;
+  Reptol: TSynAnySyn;
+  SynEdit1: TSynEdit; //FOR TESTING
   procedure btnConvertClick(Sender: TObject);
   function CreateOutput: TStringList;
   procedure btnRecompileClick(Sender: TObject);
@@ -37,33 +40,55 @@ type
   procedure FormDropFiles(Sender: TObject; const FileNames: array of string);
   function Detokenise(C: Integer; AData: RIByteArray): TStringList;
   procedure FormShow(Sender: TObject);
+  function CreateEditBox(Lparent: TObject): TSynEdit;
+  function SetUpHighlighter(section: Byte): TStringArray;
   function Tokenise(Input: TStrings): RIByteArray;
-  function Decompile(C: Integer; AData: RIByteArray; Elk: Boolean=False;
+  function Decompile(Char: Integer; AData: RIByteArray; Elk: Boolean=False;
                                            TidyCode: Boolean=True): TStringList;
   function Convert(RIData: RIByteArray;toBBC: Boolean): RIByteArray;
+  function ValidateCode(Input: TStrings; out Errors: TStringList;
+                                                    BBC: Boolean=True): Boolean;
+  function SplitString(Input: String): TStringArray;
+  function IsValidFloat(Input: String): Boolean;
   function Compile(Input: TStrings;out Errors: TStringList;
-                                           BBC: Boolean=True): RIByteArray;
+                                                BBC: Boolean=True): RIByteArray;
  private
   LoadedData: RIByteArray;
   LoadedFile: String;
   CharTab   : array[0..31] of TTabSheet;
-  CharDisp  : array[0..31] of TMemo;
+  CharDisp  : array[0..31] of TSynEdit;
+  FCharTerm : String;
   const
+   //Used with StringReplace
+   replace = [rfReplaceAll, rfIgnoreCase];
    //All the Reptol commands in order of token
-   tokens: array[$80..$AB] of String = (
+   FRITokens: array[$80..$AB] of String = (
    'NAME','HITBY','LOOK(','DEFINE','CREATE(','IF','MOVING','ELSE','ENDIF','GOTO',
    'NOT','KILLREPTON','CHANGE(','END','SCORE(','SOUND(','FLIP','EFFECT(','FLASH(',
    'CHANCE(','KEY','One','Two','Four','TYPE','ACTION','HITS','MOVE(','STATE(',
    'LABEL','EVENT(','CONTENTS','Animate','RED','GREEN','YELLOW','BLUE','MAGENTA',
-   'CYAN','WHITE','WESTOF','SOUTHOF','EASTOF','NORTHOF');
+   'CYAN','WHITE','WESTOF','SOUTHOF','EASTOF','NORTHOF'); //Keywords (that are not in system flags or colours), minus '('
    //System flags
-   SysFlags: array[0..1] of array[0..7] of String=(
+   FRISysFlags: array[0..1] of array[0..7] of String=(
    ('invalid0','invalid1','One','Two','Four','invalid5','Repton','Animate'),
-   ('Transport','Squash','Cycle','Under','VPush','HPush','Deadly','Solid'));
-   //Used with StringReplace
-   replace = [rfReplaceAll, rfIgnoreCase];
+   ('Transport','Squash','Cycle','Under','VPush','HPush','Deadly','Solid')); //Constants (except for 'invalid*' 
+   //Directions for 'MOVE' command
+   FRIMove: array[0..7] of String=('E','S','W','N','F','R','B','L');
+   //Directions for 'LOOK' command
+   FRILook: array[0..11] of String=('E','S','W','N','F','R','B','L',
+                                    'NW','NE','SW','SE');
+   //Directions for 'CREATE' command (minus tokens
+   FRICreate: array[0..8] of String=('E','S','W','N','curr','NW','NE','SW','SE');
+   //Standard colours
+   FRIColours: array[0..7] of String=(
+                'BLACK','RED','GREEN','YELLOW','BLUE','MAGENTA','CYAN','WHITE');//Objects
+   //Directions for 'CREATE' command
+   FRICreTok: array[0..12] of array[0..1] of String=(('$42','curr'),
+                        ('$41','W'), ('$43','E'), ('$62','S'), ('$22','N'),
+                        ('$FF','W'), ('$01','E'), ('$E0','N'), ('$20','S'),
+                        ('$63','SE'),('$23','NE'),('$61','SW'),('$21','NW'));
    //Compile/Decompile translations - BBC Version
-   BBCCmds: array[0..66] of array[0..1] of String=(
+   FRIBBCCmds: array[0..66] of array[0..1] of String=(
                 ('A9xx8533A9yy853420431DB0zz','IF NOT CHANCE(&yy&xx) GOTO %zz'),
                 ('A9xx8533A9yy853420431D90zz','IF CHANCE(&yy&xx) GOTO %zz'),
 		('A2xxA0yy4C8219','CHANGE(Character#xx,Character#yy)'),
@@ -132,7 +157,7 @@ type
                 ('A51D','UNKNOWN COMMAND'), //LDA &1D
                 ('60','END'));
    //Compile/Decompile translations - Electron Version
-   ElkCmds: array[0..66] of array[0..1] of String=(
+   FRIElkCmds: array[0..66] of array[0..1] of String=(
                 ('A9xx8533A9yy853420E01CB0zz','IF NOT CHANCE(&yy&xx) GOTO %zz'),
                 ('A9xx8533A9yy853420E01C90zz','IF CHANCE(&yy&xx) GOTO %zz'),
 		('A2xxA0yy4C9E19','CHANGE(Character#xx,Character#yy)'),
@@ -200,16 +225,6 @@ type
                 ('A042','UNKNOWN COMMAND'),
                 ('A51D','UNKNOWN COMMAND'),
                 ('60','END'));
-   //Directions for 'MOVE' command
-   Move: array[0..7] of String=('E','S','W','N','F','R','B','L');
-   //Standard colours
-   Colours: array[0..7] of String=(
-                'BLACK','RED','GREEN','YELLOW','BLUE','MAGENTA','CYAN','WHITE');
-   //Directions for 'CREATE' command
-   Creat: array[0..12] of array[0..1] of String=(('$42','curr'),
-                        ('$41','W'), ('$43','E'), ('$62','S'), ('$22','N'),
-                        ('$FF','W'), ('$01','E'), ('$E0','N'), ('$20','S'),
-                        ('$63','SE'),('$23','NE'),('$61','SW'),('$21','NW'));
  public
 
  end;
@@ -242,6 +257,7 @@ var
      CharTab[Index].Caption:=Copy(Output[0],6);
   end
   else StatusBar.Panels[1].Text:=Output[0];
+  Characters.ActivePage:=CharTab[0];
  end;
 begin
  //Open and load the file
@@ -250,7 +266,7 @@ begin
  F.ReadBuffer(LoadedData[0],F.Size);
  F.Free;
  //Clear the output container, ready for the output
- Output:=TStringList.Create;
+ //Output:=TStringList.Create;
  OutputDisplay.Clear;
  fname:=ExtractFileName(FileNames[0]);
  LoadedFile:=FileNames[0];
@@ -318,8 +334,10 @@ begin
  Result.Add(StatusBar.Panels[1].Text);
  for Index:=0 to 31 do
  begin
-  Result.Add(StringOfChar('-',40));
+  Result.Add(FCharTerm);
   Result.AddStrings(CharDisp[Index].Lines);
+  if LeftStr(CharDisp[Index].Lines[0],5)='NAME ' then
+   CharTab[Index].Caption:=Copy(CharDisp[Index].Lines[0],6);
  end;
 end;
 
@@ -347,6 +365,7 @@ begin
   begin
    OutputDisplay.Clear;
    OutputDisplay.Lines.AddStrings(E);
+   Characters.ActivePage:=Summary;
   end;
   E.Free;
  end;
@@ -411,20 +430,84 @@ var
 begin
  for Index:=0 to 31 do
  begin
-  CharTab[Index]:=Characters.AddTabSheet;
-  CharTab[Index].Caption:='Character '+IntToStr(Index);
-  CharDisp[Index]:=TMemo.Create(CharTab[Index]);
-  CharDisp[Index].Parent:=CharTab[Index];
-  CharDisp[Index].Align:=alClient;
-  CharDisp[Index].ScrollBars:=ssAutoBoth;
-  CharDisp[Index].WordWrap:=False;
-  CharDisp[Index].Font.Name:='Courier New';
+  CharTab[Index]                :=Characters.AddTabSheet;
+  CharTab[Index].Caption        :='Character '+IntToStr(Index);
+  CharDisp[Index]               :=CreateEditBox(CharTab[Index]);
  end;
 end;
 
 procedure TRIMainForm.FormShow(Sender: TObject);
 begin
- Characters.ActivePage:=CharTab[0];
+ Characters.ActivePage          :=Summary;
+ FCharTerm                      :=StringOfChar('-',40);
+ Reptol.Keywords.Clear;
+ Reptol.KeyAttri.Foreground     :=clBlue;
+ Reptol.KeyAttri.Style          :=[fsBold];
+ Reptol.Keywords.AddStrings( SetUpHighlighter(0));
+ Reptol.Objects.Clear;
+ Reptol.ObjectAttri.Foreground  :=clMaroon;
+ Reptol.ObjectAttri.Style       :=[fsBold];
+ Reptol.Objects.AddStrings(  SetUpHighlighter(1));
+ Reptol.Constants.Clear;
+ Reptol.ConstantAttri.Foreground:=clRed;
+ Reptol.ConstantAttri.Style     :=[fsBold];
+ Reptol.Constants.AddStrings(SetUpHighlighter(2));
+end;
+
+{-------------------------------------------------------------------------------
+Create an Editor box
+-------------------------------------------------------------------------------}
+function TRIMainForm.CreateEditBox(Lparent: TObject): TSynEdit;
+begin
+ Result               :=TSynEdit.Create(Lparent as TComponent);
+ Result.Parent        :=Lparent as TWinControl;
+ Result.Highlighter   :=Reptol;
+ Result.Align         :=alClient;
+ Result.ScrollBars    :=ssAutoBoth;
+ Result.Font.Name     :='Courier New';
+ Result.Font.Quality  :=fqAntialiased;
+ Result.Font.Size     :=12;
+ Result.Options       :=[eoBracketHighlight,
+                                  eoGroupUndo,
+                                  eoScrollPastEol,
+                                  eoSmartTabs,
+                                  eoTabsToSpaces,
+                                  eoTrimTrailingSpaces];
+ Result.RightEdgeColor:=clNone;
+ Result.Color         :=clForm;
+ Result.TabWidth      :=1;
+ Result.BracketMatchColor.Background:=clYellow;
+ Result.BlockIndent   :=1;
+end;
+
+{-------------------------------------------------------------------------------
+Setup the Reptol Highlighter
+-------------------------------------------------------------------------------}
+function TRIMainForm.SetUpHighlighter(section: Byte): TStringArray;
+ procedure AddString(const S: String);
+ begin
+  SetLength(Result,Length(Result)+1);
+  Result[Length(Result)-1]:=S;
+ end;
+var
+ entry: String='';
+ index: Integer=0;
+begin
+ Result:=nil;
+ case section of
+  0:                                                       //Keywords
+   for index:=Low(FRITokens) to High(FRITokens) do
+   begin
+    entry:=FRITokens[index];
+    if entry.EndsWith('(') then entry:=LeftStr(entry,Length(entry)-1);
+    if (not(entry in FRISysFlags[0]))
+    and(not(entry in FRISysFlags[1]))
+    and(not(entry in FRIColours))then AddString(entry);
+   end;
+  1: for entry in FRIColours do AddString(entry);          //Objects
+  2: for entry in FRISysFlags do
+     if LeftStr(entry,7)<>'invalid' then AddString(entry); //Constants
+ end;
 end;
 
 {-------------------------------------------------------------------------------
@@ -432,21 +515,20 @@ Detokeniser - for 'T.' files
 -------------------------------------------------------------------------------}
 function TRIMainForm.Detokenise(C: Integer; AData: RIByteArray): TStringList;
 var
- lC: Integer;
- Index: Cardinal;
- line : String;
+ lC   : Integer=0;
+ Index: Cardinal=0;
+ line : String='';
 begin
  //Create the output container
  Result:=TStringList.Create;
- line:='';
+ line  :='';
  //Get the author name
  if C=-1 then
  begin
   Index:=$0;
   while(Index<$10)and(AData[Index]<>$0D)do
   begin
-   if(AData[Index]>=32)and(AData[Index]<=126)then
-    line:=line+chr(AData[Index]);
+   if(AData[Index]>=32)and(AData[Index]<=126)then line:=line+chr(AData[Index]);
    inc(Index);
   end;
   Result.Add(line);
@@ -472,11 +554,10 @@ begin
     line:='';
    end;
    //ASCII character
-   if(AData[Index]>=32)and(AData[Index]<=126)then
-    line:=line+chr(AData[Index]);
+   if(AData[Index]>=32)and(AData[Index]<=126)then line:=line+chr(AData[Index]);
    //Tokenised command
-   if(AData[Index]>=Low(tokens))and(AData[Index]<=High(tokens))then
-    line:=line+tokens[AData[Index]];
+   if(AData[Index]>=Low(FRITokens))and(AData[Index]<=High(FRITokens))then
+    line:=line+FRITokens[AData[Index]];
    //Indentation
    if(AData[Index]>=$C8)and(AData[Index]<$FE)then
     line:=line+StringOfChar(' ',AData[Index]-$C8);
@@ -493,16 +574,16 @@ Tokeniser for text file to 'T' file
 -------------------------------------------------------------------------------}
 function TRIMainForm.Tokenise(Input: TStrings): RIByteArray;
 var
- Index,
- match,
- found,
- ptr   : Integer;
- line  : String;
-procedure AddByte(b: Byte);
-begin
- SetLength(Result,Length(Result)+1);
- Result[Length(Result)-1]:=b;
-end;
+ Index : Integer=0;
+ match : Integer=0;
+ found : Integer=0;
+ ptr   : Integer=0;
+ line  : String='';
+ procedure AddByte(b: Byte);
+ begin
+  SetLength(Result,Length(Result)+1);
+  Result[Length(Result)-1]:=b;
+ end;
 begin
  //Setup the output container
  Result:=nil;
@@ -521,7 +602,7 @@ begin
   if Input[Index]='' then AddByte($0D)
   else
    //Divider? Add the character separator
-   if Input[Index]=StringOfChar('-',40) then AddByte($FE)
+   if Input[Index]=FCharTerm then AddByte($FE)
    else
    begin
     //Count the number of spaces at the start of the line
@@ -534,20 +615,20 @@ begin
     begin
      //Look through the tokens
      found:=0;
-     match:=Low(tokens);
-     while(found=0)and(match<=High(tokens))do
+     match:=Low(FRITokens);
+     while(found=0)and(match<=High(FRITokens))do
      begin
       //Found one?
-      if Copy(Input[Index],ptr,Length(tokens[match]))=tokens[match] then
+      if Copy(Input[Index],ptr,Length(FRITokens[match]))=FRITokens[match] then
        found:=match; //Make a note
       inc(match);
      end;
      //If we have, then add it to the data
-     if found>=Low(tokens) then
+     if found>=Low(FRITokens) then
      begin
       AddByte(found);
       //Move along to after the command
-      inc(ptr,Length(tokens[found])-1);
+      inc(ptr,Length(FRITokens[found])-1);
      end
      else //We haven't, so just add the characters
       if(Ord(Input[Index][ptr])>31)and(Ord(Input[Index][ptr])<127)then
@@ -572,144 +653,149 @@ end;
 {-------------------------------------------------------------------------------
 Decompiler for 'O.' files
 -------------------------------------------------------------------------------}
-function TRIMainForm.Decompile(C: Integer; AData: RIByteArray; Elk: Boolean;
+function TRIMainForm.Decompile(Char: Integer; AData: RIByteArray; Elk: Boolean;
                                            TidyCode: Boolean=True): TStringList;
 var
- B,D,E   : Byte;
- base    : Word;
- Offset,
- EndOff,
- ThisOff,
- Index2,
- Index   : Integer;
- line    : String;
+ B       : Byte=0;
+ D       : Byte=0;
+ E       : Byte=0;
+ base    : Word=0;
+ Offset  : Integer=0;
+ EndOff  : Integer=0;
+ ThisOff : Integer=0;
+ Index2  : Integer=0;
+ Index   : Integer=0;
+ line    : String='';
  cmds    : array[0..133] of array[0..1] of String;
-//Check a stream of bytes against a known stream
-function Check(tocheck,cmd: String): String;
-var
- I,T: Integer;
- ok : Boolean;
- S  : String;
- R  : Cardinal;
- P  : Real;
-begin
- //We already have found something, so exit
- if line<>'' then exit;
- //Empty result
- Result:='';
- I:=1;
- ok:=True;
- while I<Length(tocheck) do
+ //Check a stream of bytes against a known stream
+ function Check(tocheck,cmd: String): String;
+ var
+  I  : Integer=0;
+  T  : Integer=0;
+  ok : Boolean=False;
+  S  : String='';
+  R  : Cardinal=0;
+  P  : Real=0;
  begin
-  //Get each byte from the string
-  S:=Copy(tocheck,I,2);
-  //Does it match?
-  if IntToHex(StrToIntDef('$'+S,0),2)=S then
-   if StrToIntDef('$'+S,0)<>AData[Offset+(I-1)div 2] then ok:=False;
-  //Does not match, so check to see if it is a wildcard - only check if OK so far
-  if(IntToHex(StrToIntDef('$'+S,0),2)<>S)and(ok)then
+  //We already have found something, so exit
+  if line<>'' then exit;
+  //Empty result
+  Result:='';
+  I     :=1;
+  ok    :=True;
+  while I<Length(tocheck) do
   begin
-   R:=AData[Offset+(I-1)div 2];
-   //Straight integer
-   if Pos('#'+S,cmd)>0 then
-    cmd:=StringReplace(cmd,'#'+S,IntToStr(R),replace);
-   //Hex value
-   if Pos('$'+S,cmd)>0 then
-    cmd:=StringReplace(cmd,'$'+S,'0x'+IntToHex(R,2),replace);
-   //Floating point value
-   if Pos('&'+S,cmd)>0 then
-    cmd:=StringReplace(cmd,'&'+S,'fp'+IntToHex(R,2),replace);
-   //Colour
-   if Pos('?'+S,cmd)>0 then
-    cmd:=StringReplace(cmd,'?'+S,colours[R mod (High(colours)+1)],replace);
-   //MOVE direction
-   if Pos('*'+S,cmd)>0 then
-    cmd:=StringReplace(cmd,'*'+S,move[R mod (High(move)+1)],replace);
-   //Event - just count the number of bits that are set
-   if Pos('^'+S,cmd)>0 then
+   //Get each byte from the string
+   S:=Copy(tocheck,I,2);
+   //Does it match?
+   if IntToHex(StrToIntDef('$'+S,0),2)=S then
+    if StrToIntDef('$'+S,0)<>AData[Offset+(I-1)div 2] then ok:=False;
+   //Does not match, so check to see if it is a wildcard - only check if OK so far
+   if(IntToHex(StrToIntDef('$'+S,0),2)<>S)and(ok)then
    begin
-    B:=0;
-    for T:=0 to 7 do if R=(1<<(T+1))-1 then B:=T;
-    cmd:=StringReplace(cmd,'^'+S,IntToStr(B),replace);
+    R:=AData[Offset+(I-1)div 2];
+    //Straight integer
+    if Pos('#'+S,cmd)>0 then
+     cmd:=StringReplace(cmd,'#'+S,IntToStr(R),replace);
+    //Hex value
+    if Pos('$'+S,cmd)>0 then
+     cmd:=StringReplace(cmd,'$'+S,'0x'+IntToHex(R,2),replace);
+    //Floating point value
+    if Pos('&'+S,cmd)>0 then
+     cmd:=StringReplace(cmd,'&'+S,'fp'+IntToHex(R,2),replace);
+    //Colour
+    if Pos('?'+S,cmd)>0 then
+     cmd:=StringReplace(cmd,'?'+S,FRIColours[R mod (High(FRIColours)+1)],replace);
+    //MOVE direction
+    if Pos('*'+S,cmd)>0 then
+     cmd:=StringReplace(cmd,'*'+S,FRIMove[R mod (High(FRIMove)+1)],replace);
+    //Event - just count the number of bits that are set
+    if Pos('^'+S,cmd)>0 then
+    begin
+     B:=0;
+     for T:=0 to 7 do if R=(1<<(T+1))-1 then B:=T;
+     cmd:=StringReplace(cmd,'^'+S,IntToStr(B),replace);
+    end;
+    //Relative offset
+    if Pos('%'+S,cmd)>0 then
+    begin
+     if R<$80 then
+      cmd:=StringReplace(cmd,'%'+S,'0x'+IntToHex(Offset+R+1+(I-1)div 2,4),replace)
+     else
+      cmd:=StringReplace(cmd,'%'+S,'0x'+IntToHex(Offset-($100-R)+(I-1)div 2,4),replace);
+    end;
+    //Userflag - which bit is set
+    if Pos('!'+S,cmd)>0 then
+    begin
+     B:=0;
+     if R>0 then while(B<8)and(R<>1<<B)do inc(B);
+     if B<8 then
+      cmd:=StringReplace(cmd,'!'+S,IntToStr(B),replace);
+    end;
+    //CREATE direction
+    if Pos('@'+S,cmd)>0 then
+    begin
+     for T:=0 to High(FRICreTok) do
+      if StrToInt(FRICreTok[T,0])=R then
+       cmd:=StringReplace(cmd,'@'+S,FRICreTok[T,1],replace);
+     //This is an optional parameter, so 'curr' needs to be removed
+     if Pos(',curr',cmd)>0 then
+      cmd:=StringReplace(cmd,',curr','',replace);
+    end;
    end;
-   //Relative offset
-   if Pos('%'+S,cmd)>0 then
-   begin
-    if R<$80 then
-     cmd:=StringReplace(cmd,'%'+S,'0x'+IntToHex(Offset+R+1+(I-1)div 2,4),replace)
-    else
-     cmd:=StringReplace(cmd,'%'+S,'0x'+IntToHex(Offset-($100-R)+(I-1)div 2,4),replace);
-   end;
-   //Userflag - which bit is set
-   if Pos('!'+S,cmd)>0 then
-   begin
-    B:=0;
-    if R>0 then while(B<8)and(R<>1<<B)do inc(B);
-    if B<8 then
-     cmd:=StringReplace(cmd,'!'+S,IntToStr(B),replace);
-   end;
-   //CREATE direction
-   if Pos('@'+S,cmd)>0 then
-   begin
-    for T:=0 to High(creat) do
-     if StrToInt(creat[T,0])=R then
-      cmd:=StringReplace(cmd,'@'+S,creat[T,1],replace);
-    //This is an optional parameter, so 'curr' needs to be removed
-    if Pos(',curr',cmd)>0 then
-     cmd:=StringReplace(cmd,',curr','',replace);
-   end;
+   inc(I,2);
   end;
-  inc(I,2);
+  //All matched
+  if ok then
+  begin
+   //Replace 0xXX0xYY with relative hex address
+   if Pos('0x',cmd)>0 then
+    if Copy(cmd,Pos('0x',cmd)+4,2)='0x' then
+    begin
+     R:=StrToIntDef('$'+Copy(cmd,Pos('0x',cmd)+2,2),0)<<8
+       +StrToIntDef('$'+Copy(cmd,Pos('0x',cmd)+6,2),0);
+     dec(R,base);
+     cmd:=StringReplace(cmd,Copy(cmd,Pos('0x',cmd),8),'0x'+IntToHex(R,4),replace);
+    end;
+   //Replace fpXXfpYY with a floating point number (usually CHANCE percentage)
+   if Pos('fp',cmd)>0 then
+    if Copy(cmd,Pos('fp',cmd)+4,2)='fp' then
+    begin
+     R:=StrToIntDef('$'+Copy(cmd,Pos('fp',cmd)+2,2),0)<<8
+       +StrToIntDef('$'+Copy(cmd,Pos('fp',cmd)+6,2),0);
+     P:=Round((R/32768)*10000)/100;
+     cmd:=StringReplace(cmd,Copy(cmd,Pos('fp',cmd),8),FloatToStr(P)+'%',replace);
+    end;
+   //Put this in the result, along with the offset address
+   Result:=IntToHex(Offset,4)+': '+cmd;
+   //And move the offset pointer to after this command
+   inc(Offset,(Length(tocheck)div 2)-1);
+  end;
  end;
- //All matched
- if ok then
+ //Add an 'ENDIF'
+ procedure AddEndif;
  begin
-  //Replace 0xXX0xYY with relative hex address
-  if Pos('0x',cmd)>0 then
-   if Copy(cmd,Pos('0x',cmd)+4,2)='0x' then
-   begin
-    R:=StrToIntDef('$'+Copy(cmd,Pos('0x',cmd)+2,2),0)<<8
-      +StrToIntDef('$'+Copy(cmd,Pos('0x',cmd)+6,2),0);
-    dec(R,base);
-    cmd:=StringReplace(cmd,Copy(cmd,Pos('0x',cmd),8),'0x'+IntToHex(R,4),replace);
-   end;
-  //Replace fpXXfpYY with a floating point number (usually CHANCE percentage)
-  if Pos('fp',cmd)>0 then
-   if Copy(cmd,Pos('fp',cmd)+4,2)='fp' then
-   begin
-    R:=StrToIntDef('$'+Copy(cmd,Pos('fp',cmd)+2,2),0)<<8
-      +StrToIntDef('$'+Copy(cmd,Pos('fp',cmd)+6,2),0);
-    P:=Round((R/32768)*10000)/100;
-    cmd:=StringReplace(cmd,Copy(cmd,Pos('fp',cmd),8),FloatToStr(P)+'%',replace);
-   end;
-  //Put this in the result, along with the offset address
-  Result:=IntToHex(Offset,4)+': '+cmd;
-  //And move the offset pointer to after this command
-  inc(Offset,(Length(tocheck)div 2)-1);
+  line:=RightStr(Result[Index],
+                 Length(Result[Index])-(Pos('GOTO',
+                                            Result[Index])+6));
+  Result[Index]:=StringReplace(Result[Index],' GOTO 0x'+line,'',replace);
+  Index2:=Index+1;
+  while(Index2<Result.Count)and(LeftStr(Result[Index2],4)<>line)do inc(Index2);
+  Result.Insert(Index2,line+': ENDIF');
  end;
-end;
-//Add an 'ENDIF'
-procedure AddEndif;
-begin
- line:=RightStr(Result[Index],Length(Result[Index])-(Pos('GOTO',Result[Index])+6));
- Result[Index]:=StringReplace(Result[Index],' GOTO 0x'+line,'',replace);
- Index2:=Index+1;
- while(Index2<Result.Count)and(LeftStr(Result[Index2],4)<>line)do inc(Index2);
- Result.Insert(Index2,line+': ENDIF');
-end;
 //Main function definition
 begin
  //Setup the command translations
  for Index:=0 to 66 do
  begin
-  cmds[Index*2  ]:=BBCCmds[Index];
-  cmds[Index*2+1]:=ElkCmds[Index];
+  cmds[Index*2  ]:=FRIBBCCmds[Index];
+  cmds[Index*2+1]:=FRIElkCmds[Index];
  end;
  //Create the output container
  Result:=TStringList.Create;
  line:='';
  //Get the author name
- if C=-1 then
+ if Char=-1 then
  begin
   Index:=$0;
   while(Index<$10)and(AData[Index]<>$0D)do
@@ -720,30 +806,30 @@ begin
   end;
   Result.Add(line);
  end;
- if(C>=0)and(C<32)then
+ if(Char>=0)and(Char<32)then
  begin
   //Set the base address (minus $F0 for where the code starts)
   base:=$5AC0;//BBC is 5BB0-F0
   if Elk then base:=$4990;//Electron is 4A80-F0
   //Iterate through each of the 32 characters
   //Header
-  Result.Add('NAME Character'+IntToStr(C)); //This is optional
+  Result.Add('NAME Character'+IntToStr(Char)); //This is optional
   Result.Add('DEFINE TYPE'); //There could be none, so this is also optional
   //Add the flags
   for E:=0 to 7 do
   begin
    //System flags
-   if AData[$90+C]AND(1<<E)=1<<E then Result.Add(SysFlags[0,E]);
-   if AData[$B0+C]AND(1<<E)=1<<E then Result.Add(SysFlags[1,E]);
+   if AData[$90+Char]AND(1<<E)=1<<E then Result.Add(FRISysFlags[0,E]);
+   if AData[$B0+Char]AND(1<<E)=1<<E then Result.Add(FRISysFlags[1,E]);
    //User flags
-   if AData[$D0+C]AND(1<<E)=1<<E then Result.Add('UserFlag'+IntToStr(E));
+   if AData[$D0+Char]AND(1<<E)=1<<E then Result.Add('UserFlag'+IntToStr(E));
   end;
   //Find the ACTION or HITS offset for this character
-  E:=$10;
+  E:=$10; //Should be $10 for 'O' files, $2450 for 'G' files and $1250 for 'eG' files
   Offset:=0;
   while(Offset=0)and(E<>0)do
   begin
-   Offset:=AData[E+C]+AData[E+$20+C]<<8;
+   Offset:=AData[E+Char]+AData[E+$20+Char]<<8;
    if Offset<base+$F0 then if E=$10 then E:=$50 else if E=$50 then E:=0;
   end;
   //If the offset is zero, then there is no definition
@@ -753,7 +839,7 @@ begin
    dec(Offset,base);
    //Now need to find the end of the definition
    EndOff:=0;
-   D:=C;
+   D:=Char;
    while(EndOff=0)and(D<$1F)do
    begin
     inc(D);
@@ -765,7 +851,7 @@ begin
    D:=0;
    while((ThisOff<Offset)or(ThisOff>EndOff))and(D<$1F)do
    begin
-    if C<>D then ThisOff:=(AData[$50+D]+AData[$70+D]<<8)-base;
+    if Char<>D then ThisOff:=(AData[$50+D]+AData[$70+D]<<8)-base;
     inc(D);
    end;
    if(ThisOff>Offset)and(ThisOff<EndOff)then EndOff:=ThisOff-1;
@@ -773,7 +859,7 @@ begin
    while Offset<=EndOff do
    begin
     //We are adding the 'DEFINE HITS' section
-    if(Offset=(AData[$50+C]+AData[$70+C]<<8)-base)and(E=$10)then
+    if(Offset=(AData[$50+Char]+AData[$70+Char]<<8)-base)and(E=$10)then
      Result.Add('DEFINE HITS');
     //Start with an empty line
     line:='';
@@ -957,10 +1043,13 @@ Convertor - converts object files from BBC to Electron or vice versa
 -------------------------------------------------------------------------------}
 function TRIMainForm.Convert(RIData: RIByteArray;toBBC: Boolean): RIByteArray;
 var
- C,D,L,F,
- Index: Integer;
- found,
- ok   : Boolean;
+ C    : Integer=0;
+ D    : Integer=0;
+ L    : Integer=0;
+ F    : Integer=0;
+ Index: Integer=0;
+ found: Boolean=False;
+ ok   : Boolean=False;
 const
  cmds: array[0..57] of array[0..1] of String=( //(BBC,Electron)
                 ('A9##8533A9##853420431DB0##','A9##8533A9##853420E01CB0##'),
@@ -1100,29 +1189,516 @@ begin
 end;
 
 {-------------------------------------------------------------------------------
+Validate the source code
+-------------------------------------------------------------------------------}
+function TRIMainForm.ValidateCode(Input: TStrings; out Errors: TStringList;
+                                                    BBC: Boolean=True): Boolean;
+ procedure ReportError(error: String; char,line: Integer);
+ begin
+  if char>=0 then error:=error+' in character '+IntToStr(char);
+  if line>=0 then error:=error+' line '+IntToStr(line);
+  Errors.Add(error);
+ end;
+ function ValidateName(name: String): Boolean;
+ var
+  index: Integer;
+ const
+  invalidname: array of String = (
+   'NAME','HITBY','LOOK','DEFINE','CREATE','IF','MOVING','ELSE','ENDIF','GOTO',
+   'NOT','KILLREPTON','CHANGE','END','SCORE','SOUND','FLIP','EFFECT','FLASH',
+   'CHANCE','KEY','One','Two','Four','TYPE','ACTION','HITS','MOVE','STATE',
+   'LABEL','EVENT','CONTENTS','Animate','RED','GREEN','YELLOW','BLUE','MAGENTA',
+   'CYAN','WHITE','WESTOF','SOUTHOF','EASTOF','NORTHOF','Transport','Squash',
+   'Cycle','Under','VPush','HPush','Deadly','Solid');
+ begin
+  if name.IsEmpty then Result:=False
+  else
+  begin
+   Result:=True;
+   //Can't start with number
+   if(name[1]>='0')and(name[1]<='9')then Result:=False;
+   //Need to contain letters, numbers and/or underscore
+   for index:=1 to Length(name) do
+    if((name[index]>='0')and(name[index]<='9'))
+    or((name[index]>='A')and(name[index]<='Z'))
+    or((name[index]>='a')and(name[index]<='z'))
+    or( name[index] ='_')then else Result:=False;
+   //Can't be a known command or system flag
+   if name in invalidname then Result:=False;
+  end;
+ end;
+var
+ Output  : TStrings;
+ i       : Integer=0;
+ j       : Integer=0;
+ lineno  : Integer=0;
+ ifcount : Integer=0;
+ char    : Integer=0;
+ section : Integer=-1;
+ noflags : Integer=0;
+ line    : String='';
+ linecmds: array of String=();
+ charname: array of String=();
+ flags   : array of String=();
+ labels  : array of array of String=();
+const
+ //Commands allowed in the 'DEFINE ACTIONS' section
+ actions : array of String=('CHANCE(','CHANGE(','CONTENTS','CREATE(','EASTOF',
+                            'EFFECT(','ELSE','END','ENDIF','EVENT(','FLASH(',
+                            'FLIP','GOTO','IF','KEY','KILLREPTON','LABEL',
+                            'LOOK(','MOVE(','NORTHOF','NOT','SCORE(','SOUND(',
+                            'SOUTHOF','STATE(','WESTOF');
+ //Commands allowed in the 'DEFINE HITS' section
+ hits    : array of String=('CHANGE(','CREATE(','EFFECT(','ELSE','END','ENDIF',
+                            'FLASH(','GOTO','HITBY','IF','KILLREPTON','LABEL',
+                            'NOT','SCORE(','SOUND(');
+ //Valid colour numbers
+ colnums : array of String=('0','1','2','3','4','5','6','7');
+begin
+ Result:=False;
+ if Input.Count=0 then
+ begin
+  ReportError('No code',-1,-1);
+  exit;
+ end;
+ //Keep a track of any errors
+ Errors:=TStringList.Create;
+ Output:=TStringList.Create;
+ //De-indent and remove all blank lines
+ for i:=0 to Input.Count-1 do
+ begin
+  line:=Trim(Input[i]);          //De-indent
+  if line<>'' then Output.Add(line);
+ end;
+ //Is there actually anything to validate/compile?
+ if Output.Count=0 then
+ begin
+  ReportError('No code',-1,-1);
+  exit;
+ end;
+ //Build the flags array. Start with the system flags
+ for line in FRISysFlags do
+  if LeftStr(line,7)<>'invalid' then
+  begin
+   SetLength(flags,Length(flags)+1);
+   flags[Length(flags)-1]:=line;
+  end;
+ //Validation starts here
+ ifcount:=0; //Number of IFs (reduces when ENDIF is encountered)
+ char   :=-1;//Character number
+ lineno :=0; //Line number within a character
+ //We'll do this on a few passes - first is to get the character names
+ for i:=0 to Output.Count-1 do
+ begin
+  linecmds:=SplitString(Output[i]); //***************** need to check we have enough elements
+  //First line - NAME
+  if(lineno=0)and(linecmds[0]='NAME')then
+   if Length(linecmds)>1 then
+    if linecmds[1] in charname then
+     ReportError('Name already used',char,-1)
+    else
+     if ValidateName(linecmds[1])then
+     begin
+      SetLength(charname,Length(charname)+1);
+      charname[Length(charname)-1]:=linecmds[1];
+     end
+     else ReportError('Bad name',char,-1)
+   else ReportError('Bad name',char,-1);
+  inc(lineno);
+  //End of character definition
+  if Output[i]=FCharTerm then
+  begin
+   lineno:=0;
+   inc(char);
+  end;
+ end;
+ //Next pass is to get the user flags
+ char   :=-1;
+ noflags:=Length(flags);
+ lineno :=0;
+ for i:=0 to Output.Count-1 do
+ begin
+  linecmds:=SplitString(Output[i]);
+  if Output[i]=FCharTerm then
+  begin
+   inc(char);
+   section:=-1;
+  end
+  else
+  begin
+   if linecmds[0]='DEFINE' then //Make sure they're in the correct section
+    if Length(linecmds)>1 then
+     if linecmds[1]='TYPE' then section:=0 else section:=-1
+    else ReportError('Bad definition',-1,-1);
+   if(linecmds[0]<>'DEFINE')and(section=0)and(Length(linecmds)=1)then
+   begin
+    if(not(linecmds[0]in flags))and(Length(flags)<noflags+8)
+    and(ValidateName(linecmds[0]))then
+    begin
+     SetLength(flags,Length(flags)+1);
+     flags[Length(flags)-1]:=linecmds[0];
+    end;
+    if (not(linecmds[0]in flags))and(Length(flags)<noflags+8)
+    and(not ValidateName(linecmds[0]))then
+     ReportError('Bad flag name',char,lineno);
+    if linecmds[0]='Animate'then //Can't animate all sprites
+     if(char<5)or(char>17)then
+      ReportError('Can''t animate this sprite',char,lineno);
+    if(not(linecmds[0]in flags))and(Length(flags)>=noflags+8)then
+     ReportError('Too many flags',-1,-1);
+   end;
+   if(linecmds[0]<>'DEFINE')and(section=0)and(Length(linecmds)>1)then
+    ReportError('Mistake',-1,-1);
+  end;
+ end;
+ //Third pass is to get the labels
+ char  :=-1;
+ lineno:=0;
+ SetLength(labels,32);
+ for i:=0 to Output.Count-1 do
+ begin
+  if Output[i]=FCharTerm then
+  begin
+   inc(char);
+   lineno:=0;
+  end
+  else
+  if char>=0 then
+   begin
+    linecmds:=SplitString(Output[i]);
+    if linecmds[0]='LABEL' then
+     if Length(linecmds)>1 then
+      if linecmds[1] in labels[char] then
+       ReportError('Label already used',char,lineno)
+      else
+       if ValidateName(linecmds[1]) then
+       begin
+        SetLength(labels[char],Length(labels[char])+1);
+        labels[char,Length(labels[char])-1]:=linecmds[1];
+       end
+       else
+        ReportError('Bad label',char,lineno)
+     else
+      ReportError('Syntax Error',char,lineno);
+    inc(lineno);
+   end;
+ end;
+ //Reset the variables for the final pass
+ char  :=-1;
+ lineno:=0;
+ for i:=0 to Output.Count-1 do
+ begin
+  if(char>=0)and(Output[i]<>FCharTerm)then
+  begin
+   linecmds:=SplitString(Output[i]);
+   //NAME has appeared somewhere other than at the start
+   if(linecmds[0]='NAME')and(lineno<>0)then ReportError('Mistake',char,lineno);
+   //Get the section, and validate the section type
+   if linecmds[0]='DEFINE' then
+   begin
+    section:=-1;
+    if Length(linecmds)>1 then
+    begin
+     if linecmds[1]='TYPE'  then section:=0;
+     if linecmds[1]='ACTION'then section:=1;
+     if linecmds[1]='HITS'  then section:=2;
+    end;
+    if(section=-1)OR(Length(linecmds)>2)then
+     ReportError('Bad definition',char,lineno);
+   end;
+   if linecmds[0]<>'DEFINE' then
+    //Check the command is in the correct section
+    if((section=0)AND((linecmds[0]in actions)or(linecmds[0]in hits)))
+    or((section=1)AND(not(linecmds[0]in actions))AND(linecmds[0]in hits))
+    or((section=2)AND(not(linecmds[0]in hits))AND(linecmds[0]in actions))then
+     ReportError('Wrong section',char,lineno);
+   //Check it is a valid command
+   if (linecmds[0]<>'DEFINE')
+   and(linecmds[0]<>'NAME')
+   and(not(linecmds[0]in actions))
+   and(not(linecmds[0]in hits))
+   and(section<>0)then ReportError('Syntax Error',char,lineno);
+   //ACTION or HITS section
+   if section>0 then
+   begin
+    //Count brackets
+    if Output[i].CountChar('(')<Output[i].CountChar(')') then
+     ReportError('Missing (',char,lineno);
+    if Output[i].CountChar(')')<Output[i].CountChar('(') then
+     ReportError('Missing )',char,lineno);
+    //Check commands
+    case linecmds[0] of
+    'IF':
+     begin
+      inc(ifcount);
+      //Too many IFs
+      if ifcount>8 then ReportError('Too many IFs',char,lineno);
+      //Compensate for a NOT
+      if Length(linecmds)>1 then
+       if linecmds[1]='NOT' then j:=1 else j:=0;
+      //Check conditional commands
+      if Length(linecmds)>j+1 then
+      begin
+       case linecmds[j+1] of
+        'CHANCE(':
+         //Check it has a '%'
+         if Length(linecmds)>j+2 then
+          if not linecmds[j+2].EndsWith('%') then
+           ReportError('Missing %',char,lineno)
+          else //And is a valid float between 0.01 and 100 inclusive
+          begin
+           if not IsValidFloat(linecmds[j+2].TrimRight('%'))then
+            ReportError('Bad %',char,lineno);
+          end
+         else
+          ReportError('Syntax Error',char,lineno);
+        'CONTENTS',
+        'HITBY':
+         if Length(linecmds)>j+2 then
+         begin
+          if not(linecmds[j+2] in charname) then
+           ReportError('No such sprite',char,lineno);
+         end
+         else
+          ReportError('Syntax Error',char,lineno);
+        'EVENT(':
+         if Length(linecmds)>j+2 then
+         begin
+          if(StrToIntDef(linecmds[j+2],0)<1)or(StrToIntDef(linecmds[j+2],0)>7)then
+           ReportError('Bad EVENT',char,lineno);
+         end
+         else
+          ReportError('Syntax Error',char,lineno);
+        'STATE(':
+         if Length(linecmds)>j+2 then
+         begin
+          if(linecmds[j+2]<>'0')and(linecmds[j+2]<>'1')then
+           ReportError('Bad STATE',char,lineno);
+         end
+         else
+          ReportError('Syntax Error',char,lineno);
+        'EASTOF',
+        'KEY',
+        'MOVING',
+        'NORTHOF',
+        'SOUTHOF',
+        'WESTOF':if Length(linecmds)>j+2 then ReportError('Mistake',char,lineno);
+        otherwise //flags
+         if not(linecmds[j+1] in flags)then ReportError('No such flag',char,lineno);
+       end;
+       //Check not too many entries
+       case linecmds[j+1] of
+        'CHANCE(',
+        'CONTENTS',
+        'HITBY',
+        'EVENT(',
+        'STATE(':if Length(linecmds)>j+3 then ReportError('Mistake',char,lineno);
+       end;
+      end
+      else ReportError('Syntax Error',char,lineno);
+     end;
+    'CHANGE(':
+     if Length(linecmds)<3 then
+      ReportError('Missing ,',char,lineno)
+     else
+      if(linecmds[1] in labels[char])or(linecmds[2] in labels[char])then
+       ReportError('Type mismatch',char,lineno)
+      else
+       if(not(linecmds[1] in charname))or(not(linecmds[2] in charname))then
+        ReportError('No such sprite',char,lineno);
+    'CREATE(': //char,dir (optional)
+     if Length(linecmds)>1 then
+      begin
+       if linecmds[1] in labels[char] then
+        ReportError('Type mismatch',char,lineno)
+       else
+        if not(linecmds[1] in charname) then
+         ReportError('No such sprite',char,lineno);
+       if Length(linecmds)=3 then
+        if not(linecmds[2] in FRICreate)then
+         ReportError('Bad direction',char,lineno);
+      end
+      else
+       ReportError('Syntax Error',char,lineno);
+    'FLASH(':
+     if Length(linecmds)>1 then
+     begin
+      if(not(linecmds[1] in ColNums))and(not(linecmds[1]in FRIColours))then
+       ReportError('Bad Colour',char,lineno);
+     end
+     else
+      ReportError('Syntax Error',char,lineno);
+    'GOTO':
+     if Length(linecmds)>1 then
+     begin
+      if(not(linecmds[1] in labels[char]))and(not(linecmds[1] in flags))then
+       ReportError('No such label',char,lineno);
+      if(not(linecmds[1] in labels[char]))and(linecmds[1] in flags)then
+       ReportError('Type mismatch',char,lineno);
+     end
+     else
+      ReportError('Syntax Error',char,lineno);
+    'LOOK(':
+     if Length(linecmds)>1 then
+     begin
+      if not(linecmds[1] in FRILook)then
+       ReportError('Bad direction',char,lineno);
+     end
+     else
+      ReportError('Syntax Error',char,lineno);
+    'MOVE(':
+     if Length(linecmds)>1 then
+     begin
+      if not(linecmds[1] in FRIMove)then
+       ReportError('Bad MOVE direction',char,lineno);
+     end
+     else
+      ReportError('Syntax Error',char,lineno);
+    'EFFECT(',
+    'SCORE(',
+    'SOUND(':
+     if Length(linecmds)>1 then
+     begin
+      if IntToStr(StrToIntDef(linecmds[1],256))<>linecmds[1]then
+       ReportError('Bad numeric parameter',char,lineno)
+      else
+       if(StrToInt(linecmds[1])>255)or(StrToInt(linecmds[1])<0)then
+        ReportError('Number too big',char,lineno);
+     end
+     else
+      ReportError('Syntax Error',char,lineno);
+    'STATE(':
+     if Length(linecmds)>1 then
+     begin
+      if(linecmds[1]<>'0')and(linecmds[1]<>'1')then
+       ReportError('Bad STATE',char,lineno);
+     end
+     else
+      ReportError('Syntax Error',char,lineno);
+    'ENDIF':
+     begin
+      dec(ifcount);
+      if Length(linecmds)>1 then ReportError('Mistake',char,lineno);
+     end;
+    'ELSE',
+    'END',
+    'FLIP',
+    'KILLREPTON':if Length(linecmds)>1 then ReportError('Mistake',char,lineno);
+    'LABEL',
+    'DEFINE':;//This is dealt with above, but is here to make sure it doesn't throw an error
+    otherwise //unknown
+     ReportError('Syntax Error '+linecmds[0],char,lineno);
+    end;
+    case linecmds[0] of
+    'CHANGE(',
+    'CREATE(':if Length(linecmds)>3 then ReportError('Mistake',char,lineno);
+    'EFFECT(',
+    'FLASH(',
+    'GOTO',
+    'LABEL',
+    'LOOK(',
+    'MOVE(',
+    'SCORE(',
+    'SOUND(',
+    'STATE(':if Length(linecmds)>2 then ReportError('Mistake',char,lineno);
+    end;
+   end;
+   inc(lineno);
+  end;
+  //End of character definition
+  if Output[i]=FCharTerm then
+  begin
+   if ifcount<>0 then
+   begin
+    if ifcount<0 then ReportError('No IF',char,-1);
+    if ifcount>0 then ReportError('No ENDIF',char,-1);
+    ifcount:=0; //Reset the IF/ENDIF counter
+   end;
+   inc(char);
+   section:=-1;//Reset the section
+   lineno :=0; //Reset the line number
+  end;
+ end;
+ //Check that we have 32 characters
+ if char<31 then ReportError('Not enough characters ('+IntToStr(char+1)+')',-1,-1);
+ if char>31 then ReportError('Too many characters ('+IntToStr(char+1)+')',-1,-1);
+ //Return a result
+ Result:=Errors.Count=0;
+end;
+
+{-------------------------------------------------------------------------------
+Split a command line at space or (, but keep the (
+-------------------------------------------------------------------------------}
+function TRIMainForm.SplitString(Input: String): TStringArray;
+var
+ index: Integer=0;
+ cmd  : String='';
+begin
+ //Split the input about the space and opening bracket
+ Result:=Input.Split([' ','(',',']);
+ //Has this yealed anything?
+ if Length(Result)>0 then
+ begin
+  //Iterate through each result
+  for index:=0 to Length(Result)-1 do
+  begin
+   //Grab each entry
+   cmd:=Result[index];
+   //Make sure it's not empty
+   if not cmd.IsEmpty then
+   begin
+    //Add the split character back in (only for '(')
+    if Pos(cmd,Input)+Length(cmd)<=Length(Input) then
+     if Input[Pos(cmd,Input)+Length(cmd)]='(' then Result[index]:=cmd+'(';
+    //Remove any closing brackets
+    if(RightStr(cmd,1)=')')and(Length(cmd)>1)then
+     Result[index]:=Copy(cmd,1,Length(cmd)-1);
+   end;
+  end;
+ end;
+end;
+
+{-------------------------------------------------------------------------------
+Check to see if the input string is a valid floating point number
+-------------------------------------------------------------------------------}
+function TRIMainForm.IsValidFloat(Input: String): Boolean;
+var
+ s: Real=0;
+begin
+ s:=StrToFloatDef(Input,101);
+ Result:=(FormatFloat('0.00',s)<>'101.00')AND(s>0);
+end;
+
+{-------------------------------------------------------------------------------
 Compile an 'O' file from source
 -------------------------------------------------------------------------------}
 function TRIMainForm.Compile(Input: TStrings;out Errors: TStringList;
-                                           BBC: Boolean=True): RIByteArray;
+                                                BBC: Boolean=True): RIByteArray;
 var
- i,j,c,
- x,y,z,
- xx,yy,zz,
- soc      : Integer;
- Tmp0,
- Tmp1,
- Tmp2,
- OLbl,
- NLbl     : String;
- Output   : TStringList;
+ i        : Integer=0;
+ j        : Integer=0;
+ c        : Integer=0;
+ x        : Integer=0;
+ y        : Integer=0;
+ z        : Integer=0;
+ xx       : Integer=0;
+ yy       : Integer=0;
+ zz       : Integer=0;
+ soc      : Integer=0;
+ Tmp0     : String='';
+ Tmp1     : String='';
+ Tmp2     : String='';
+ OLbl     : String='';
+ NLbl     : String='';
+ Output   : TStringList=nil;
  Chrs,
  Actions,
  Hits     : array[0..31] of String;
  Flags    : array[0..2] of array[0..31] of Byte;
  UserFlags: array[0..7] of String;
- InType   : Boolean;
- address  : Word;
- define   : Byte;
+ InType   : Boolean=False;
+ address  : Word=0;
+ define   : Byte=0;
  //Extract a literal integer (#)
  function ExtractInteger(var s: Integer): Integer;
  begin
@@ -1147,97 +1723,77 @@ var
   end;
  end;
 begin
- //Before we do an compiling, validate the code
-{                                                                              }
- //This is what we will use to work on
- Output:=TStringList.Create;
- Output.AddStrings(Input); //Can't work on 'Input' as this will change what was passed
- //Keep a track of any errors
- Errors:=TStringList.Create;
- //Initialise the containers
- for c:=0 to 31 do
- begin
-  Chrs[c]:='';
-  Actions[c]:='';
-  Hits[c]:='';
-  //Repton has certain system flags by default
-  if c<>1 then Flags[0,c]:=0 else Flags[0,c]:=$C4;
-  Flags[1,c]:=0;
-  Flags[2,c]:=0;
- end;
- for c:=0 to 7 do UserFlags[c]:='';
  Result:=nil;
- //Remove empty lines
- i:=1;
- while i<Output.Count do
-  if Length(Output[i])=0 then Output.Delete(i) else inc(i);
- //De-indent
- for i:=0 to Output.Count-1 do
-  while(Length(Output[i])>0)and(Output[i][1]=' ')do
-   Output[i]:=Copy(Output[i],2);
- //Turn 'IF HITBY CharacterX' into 'IF HITBY' & 'IF NOT CONTENTS CharacterX GOTO',
- //make sure each DEFINE section has an END, and add a label after any ELSE's
- i:=1;
- define:=0;
- while i<Output.Count do
+ SetLength(Result,0);
+ //Before we do an compiling, validate the code
+ if ValidateCode(Input,Errors,BBC) then
  begin
-  //Turn IF HITBY into separate lines
-  if LeftStr(Output[i],9)='IF HITBY ' then
+  //This is what we will use to work on
+  Output:=TStringList.Create;
+  Output.AddStrings(Input); //Can't work on 'Input' as this will change what was passed
+  //Initialise the containers
+  for c:=0 to 31 do
   begin
-   Output.Insert(i+1,'IF CONTENTS '+Copy(Output[i],10));
-   Output[i]:='IF HITBY';
+   Chrs[c]   :='';
+   Actions[c]:='';
+   Hits[c]   :='';
+   //Repton has certain system flags by default
+   if c<>1 then Flags[0,c]:=0 else Flags[0,c]:=$C4;
+   Flags[1,c]:=0;
+   Flags[2,c]:=0;
   end;
-  //Add END to the end of a DEFINE section
-  if((Output[i]='DEFINE ACTION')and(define=3))
-  or((Output[i]='DEFINE HITS')  and(define=2))
-  or((Output[i]=StringOfChar('-',40))and(define>1))then
-   if Output[i-1]<>'END' then Output.Insert(i,'END');
-  if Output[i]=StringOfChar('-',40) then define:=0;
-  if Output[i]='DEFINE TYPE' then define:=1;
-  if Output[i]='DEFINE ACTION' then define:=2;
-  if Output[i]='DEFINE HITS' then define:=3;
-  //Add a label after an ELSE
-  if Output[i]='ELSE' then Output.Insert(i+1,'LABEL ELSE');
-  inc(i);
- end;
- //Add line numbers
- for i:=1 to Output.Count-1 do Output[i]:=IntToHex(i,4)+': '+Output[i];
- //Check to ensure there are the same number of ENDIFs as IFs
- //Also, add the terminating ENDs and character numbers
- j:=0;//Number of IFs (reduces when ENDIF is encountered)
- c:=-1;//Character number
- i:=0;
- while i<Output.Count do
- begin
-  if Copy(Output[i],7,5)='ENDIF' then dec(j);
-  if(Copy(Output[i],7,3)='IF ')and(Copy(Output[i],7)<>'IF HITBY')then inc(j);
-  if Copy(Output[i],7,40)=StringOfChar('-',40) then
+  for c:=0 to 7 do UserFlags[c]:='';
+  //Remove empty lines
+  i:=1;
+  while i<Output.Count do
+   if Length(Output[i])=0 then Output.Delete(i) else inc(i);
+  //De-indent
+  for i:=0 to Output.Count-1 do Output[i]:=Trim(Output[i]);
+  //Turn 'IF HITBY CharacterX' into 'IF HITBY' & 'IF NOT CONTENTS CharacterX GOTO',
+  //make sure each DEFINE section has an END, and add a label after any ELSE's
+  i:=1;
+  define:=0;
+  while i<Output.Count do
   begin
-   if j<>0 then
+   //Turn IF HITBY into separate lines
+   if LeftStr(Output[i],9)='IF HITBY ' then
    begin
-    if j<0 then Errors.Add('Too many ENDIFs in character '+IntToStr(c));
-    if j>0 then Errors.Add('Not enough matching ENDIFs in character '+IntToStr(c));
-    j:=0; //Reset the IF/ENDIF counter
-   end
-   else //Replace the line with an 'END'
+    Output.Insert(i+1,'IF CONTENTS '+Copy(Output[i],10));
+    Output[i]:='IF HITBY';
+   end;
+   //Add END to the end of a DEFINE section
+   if((Output[i]='DEFINE ACTION')and(define=3))
+   or((Output[i]='DEFINE HITS')  and(define=2))
+   or((Output[i]=FCharTerm)and(define>1))then
+    if Output[i-1]<>'END' then Output.Insert(i,'END');
+   if Output[i]=FCharTerm then define:=0;
+   if Output[i]='DEFINE TYPE' then define:=1;
+   if Output[i]='DEFINE ACTION' then define:=2;
+   if Output[i]='DEFINE HITS' then define:=3;
+   //Add a label after an ELSE
+   if Output[i]='ELSE' then Output.Insert(i+1,'LABEL ELSE');
+   inc(i);
+  end;
+  //Add line numbers
+  for i:=1 to Output.Count-1 do Output[i]:=IntToHex(i,4)+': '+Output[i];
+  //Add the terminating ENDs and character numbers
+  c:=-1;//Character number
+  i:=0;
+  while i<Output.Count do
+  begin
+   if Copy(Output[i],7,40)=FCharTerm then
+   begin
     if c>=0 then Output[i]:=Copy(Output[i],1,6)+'END'
     else //Unless it is the first one, in which case just delete it
     begin
      Output.Delete(i);
      dec(i);
     end;
-   inc(c);
-   Output.Insert(i+1,'Char: '+IntToStr(c));
+    inc(c);
+    Output.Insert(i+1,'Char: '+IntToStr(c));
+   end;
+   inc(i);
   end;
-  inc(i);
- end;
- if j<>0 then
-  if j<0 then Errors.Add('Too many ENDIFs in character '+IntToStr(c))
-         else Errors.Add('Not enough matching ENDIFs in character '+IntToStr(c));
- if c<>31 then Errors.Add('Not enough characters ('+IntToStr(c)+')');
- //Only continue of no errors
- if Errors.Count=0 then
- begin
   //Add the final END
   if Copy(Output[Output.Count-1],7)<>'END' then
   begin
@@ -1395,8 +1951,8 @@ begin
     while(Copy(Output[j],7,7)<>'DEFINE ')and(Copy(Output[j],7)<>'END')do
     begin
      OLbl:=Copy(Output[j],7);
-     if (not MatchStr(OLbl,SysFlags[0]))
-     and(not MatchStr(OLbl,SysFlags[1]))then
+     if (not MatchStr(OLbl,FRISysFlags[0]))
+     and(not MatchStr(OLbl,FRISysFlags[1]))then
      begin
       NLbl:='';
       c:=IndexStr(OLbl,UserFlags);
@@ -1415,15 +1971,15 @@ begin
      end;
      //System Flags
      for c:=0 to 1 do
-      if MatchStr(OLbl,SysFlags[c]) then
+      if MatchStr(OLbl,FRISysFlags[c]) then
       begin
        Output[j]:=StringReplace(Output[j],
                                 OLbl,
                                 'SystemFlag'+IntToStr(c)
-                                             +IntToStr(IndexStr(OLbl,SysFlags[c])),
+                                             +IntToStr(IndexStr(OLbl,FRISysFlags[c])),
                                 replace);
        if soc>-1 then
-        Flags[c,soc]:=Flags[c,soc]OR(1<<IndexStr(OLbl,SysFlags[c]));
+        Flags[c,soc]:=Flags[c,soc]OR(1<<IndexStr(OLbl,FRISysFlags[c]));
       end;
      inc(j);
     end;
@@ -1483,13 +2039,13 @@ begin
    for j:=0 to 7 do
    begin
     for c:=0 to 1 do
-     if SysFlags[0,j]<>'' then
-      if(Pos(' '+SysFlags[c,j]+' ',Output[i])>0)
-      or(Pos('('+SysFlags[c,j]+',',Output[i])>0)
-      or(Pos(','+SysFlags[c,j]+')',Output[i])>0)
-      or(Pos('('+SysFlags[c,j]+')',Output[i])>0)then
+     if FRISysFlags[0,j]<>'' then
+      if(Pos(' '+FRISysFlags[c,j]+' ',Output[i])>0)
+      or(Pos('('+FRISysFlags[c,j]+',',Output[i])>0)
+      or(Pos(','+FRISysFlags[c,j]+')',Output[i])>0)
+      or(Pos('('+FRISysFlags[c,j]+')',Output[i])>0)then
        Output[i]:=StringReplace(Output[i],
-                                SysFlags[c,j],
+                                FRISysFlags[c,j],
                                 'SystemFlag'+IntToStr(c)+IntToStr(j),
                                 replace);
     if UserFlags[j]<>'' then
@@ -1532,34 +2088,34 @@ begin
    while(j<67)and(Tmp0='')do
    begin
     //Exact match
-    if BBCCmds[j,1]=Tmp1 then
-     if BBC then Tmp0:=BBCCmds[j,0] else Tmp0:=ElkCmds[j,0];
+    if FRIBBCCmds[j,1]=Tmp1 then
+     if BBC then Tmp0:=FRIBBCCmds[j,0] else Tmp0:=FRIElkCmds[j,0];
     //Not an exact match
     if Tmp0='' then
     begin
-     if(Pos('#',BBCCmds[j,1])>0)
-     or(Pos('%',BBCCmds[j,1])>0)
-     or(Pos('^',BBCCmds[j,1])>0)
-     or(Pos('*',BBCCmds[j,1])>0)
-     or(Pos('@',BBCCmds[j,1])>0)
-     or(Pos('$',BBCCmds[j,1])>0)
-     or(Pos('!',BBCCmds[j,1])>0)
-     or(Pos('&',BBCCmds[j,1])>0)
-     or(Pos('?',BBCCmds[j,1])>0)then
+     if(Pos('#',FRIBBCCmds[j,1])>0)
+     or(Pos('%',FRIBBCCmds[j,1])>0)
+     or(Pos('^',FRIBBCCmds[j,1])>0)
+     or(Pos('*',FRIBBCCmds[j,1])>0)
+     or(Pos('@',FRIBBCCmds[j,1])>0)
+     or(Pos('$',FRIBBCCmds[j,1])>0)
+     or(Pos('!',FRIBBCCmds[j,1])>0)
+     or(Pos('&',FRIBBCCmds[j,1])>0)
+     or(Pos('?',FRIBBCCmds[j,1])>0)then
      begin
       //Get the first of these to occur
-      c:=Pos('#',BBCCmds[j,1]); // # always comes first, if it is there
-      if c=0 then c:=Pos('^',BBCCmds[j,1]);
-      if c=0 then c:=Pos('@',BBCCmds[j,1]);
-      if c=0 then c:=Pos('*',BBCCmds[j,1]);
-      if c=0 then c:=Pos('$',BBCCmds[j,1]);
-      if c=0 then c:=Pos('!',BBCCmds[j,1]);
-      if c=0 then c:=Pos('&',BBCCmds[j,1]);
-      if c=0 then c:=Pos('?',BBCCmds[j,1]);
-      if c=0 then c:=Pos('%',BBCCmds[j,1]); // % always comes last (or first)
+      c:=Pos('#',FRIBBCCmds[j,1]); // # always comes first, if it is there
+      if c=0 then c:=Pos('^',FRIBBCCmds[j,1]);
+      if c=0 then c:=Pos('@',FRIBBCCmds[j,1]);
+      if c=0 then c:=Pos('*',FRIBBCCmds[j,1]);
+      if c=0 then c:=Pos('$',FRIBBCCmds[j,1]);
+      if c=0 then c:=Pos('!',FRIBBCCmds[j,1]);
+      if c=0 then c:=Pos('&',FRIBBCCmds[j,1]);
+      if c=0 then c:=Pos('?',FRIBBCCmds[j,1]);
+      if c=0 then c:=Pos('%',FRIBBCCmds[j,1]); // % always comes last (or first)
       if c>0 then
-       if LeftStr(Tmp1,c-1)=LeftStr(BBCCmds[j,1],c-1) then
-        if BBC then Tmp0:=BBCCmds[j,0] else Tmp0:=ElkCmds[j,0];
+       if LeftStr(Tmp1,c-1)=LeftStr(FRIBBCCmds[j,1],c-1) then
+        if BBC then Tmp0:=FRIBBCCmds[j,0] else Tmp0:=FRIElkCmds[j,0];
      end;
     end;
     inc(j);
@@ -1568,7 +2124,7 @@ begin
    if Tmp0<>'' then
    begin
     //The original command
-    Tmp2:=BBCCmds[j-1,1];
+    Tmp2:=FRIBBCCmds[j-1,1];
     //Get the positions of the variables - those that don't exist will be 0
     x:=Pos('xx',Tmp2);
     y:=Pos('yy',Tmp2);
@@ -1589,13 +2145,13 @@ begin
      // * is only ever used with xx. This is a number (0-7) representing a direction to MOVE to.
      if(Pos('*',Tmp2)>0)and(x>0)then
      begin
-      xx:=IndexStr(Copy(Tmp1,x-1,1),Move);
+      xx:=IndexStr(Copy(Tmp1,x-1,1),FRIMove);
       x:=-1;
      end;
      // ? only appears by itself in one command - FLASH. It is a number (0..7) representing a colour.
      if(Pos('?',Tmp2)>0)and(x>0)then
      begin
-      xx:=IndexStr(Copy(Tmp1,x-1,Pos(')',Tmp1)-(x-1)),Colours);
+      xx:=IndexStr(Copy(Tmp1,x-1,Pos(')',Tmp1)-(x-1)),FRIColours);
       x:=-1;
      end;
      // ! only ever used with xx. It is a USERFLAG and is one of 7 values.
@@ -1634,8 +2190,9 @@ begin
       begin
        OLbl:=Copy(Tmp1,c,j-c);
        c:=0;
-       while(c<Length(Creat))and(Creat[c,1]<>OLbl)do inc(c);
-       if c<Length(Creat) then c:=StrToInt(Creat[c,0])
+       // if Msg in Devices then WriteLn(IndexStr(Msg,Devices));
+       while(c<Length(FRICreTok))and(FRICreTok[c,1]<>OLbl)do inc(c);
+       if c<Length(FRICreTok) then c:=StrToInt(FRICreTok[c,0])
        else Errors.Add('Invalid Create direction in "'+Tmp1+'"');
        if x>0 then if Tmp2[x-1]='@' then
        begin
@@ -1752,10 +2309,16 @@ begin
    x:=Length(Result);
    SetLength(Result,x+Length(Tmp1)div 2);
    for xx:=0 to (Length(Tmp1)div 2)-1 do
-    Result[x+xx]:=StrToIntDef('$'+Copy(Tmp1,(xx*2)+1,2),$00);
+    Result[x+xx]:=StrToIntDef('$'+Copy(Tmp1,(xx*2)+1,2),$00)
   end;
+  //Compiled code should be no bigger than 0x2D0+0xF0
+  if Length(Result)>$2D0+$F0 then
+  begin
+   Errors.Add('Can''t make small enough (0x'+IntToHex(Length(Result),4)+')');
+   SetLength(Result,0);
+  end;
+  Output.Free;
  end;
- Output.Free;
 end;
 
 end.

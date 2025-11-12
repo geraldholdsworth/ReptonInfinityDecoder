@@ -17,7 +17,7 @@ uses
 
 begin
  RequireDerivedFormResource:=True;
- Application.Title:='Repton Infinity Decoder';
+ Application.Title:='Repton Infinity BluePrint';
  Application.Scaled:=True;
  Application.Initialize;
  Application.CreateForm(TRIMainForm, RIMainForm);
