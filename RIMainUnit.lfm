@@ -8,7 +8,6 @@ object RIMainForm: TRIMainForm
   ClientHeight = 811
   ClientWidth = 1283
   Position = poScreenCenter
-  LCLVersion = '4.2.0.0'
   OnCreate = FormCreate
   OnDropFiles = FormDropFiles
   OnShow = FormShow

@@ -452,6 +452,8 @@ begin
  Reptol.ConstantAttri.Foreground:=clRed;
  Reptol.ConstantAttri.Style     :=[fsBold];
  Reptol.Constants.AddStrings(SetUpHighlighter(2));
+ Reptol.NumberAttri.Foreground  :=clBlue;
+ Reptol.SymbolAttri.Foreground  :=clPurple;
 end;
 
 {-------------------------------------------------------------------------------
