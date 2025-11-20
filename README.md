@@ -1,4 +1,4 @@
-# Repton Infinity Decoder
+# Repton Infinity Blueprint
 Decompiler, detokeniser, tokeniser and compiler for Repton Infinity 'O', 'eO', 'T' and 'eT' files.<br>
 <br>
 This is all very rough and ready, so please do not try and break it because you will.<br>
